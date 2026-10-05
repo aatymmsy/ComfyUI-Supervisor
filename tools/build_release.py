@@ -12,7 +12,7 @@ import tomllib
 import zipfile
 
 
-ROOT_FILES = ('.gitignore', '.env.example', 'LICENSE', 'README.md', 'pyproject.toml',
+ROOT_FILES = ('.gitignore', '.gitattributes', '.env.example', 'LICENSE', 'README.md', 'pyproject.toml',
               'requirements-tested.txt', 'start.ps1', 'start.bat')
 DOC_FILES = ('streamlined-studio.md', 'release.md')
 SCREENSHOTS = ('workflow-image-import.png', 'prompt-image-workflow-option.png')

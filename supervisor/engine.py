@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import json
 import secrets
+import stat
 import threading
 import time
 from datetime import datetime, timezone
@@ -329,7 +330,10 @@ class Supervisor:
         for path in sorted(directories,key=lambda p:len(p.parts),reverse=True):
             try:
                 path.resolve().relative_to(self.data_root)
-                if not path.is_symlink() and not path.is_junction():
+                # Path.is_junction is only available starting with Python 3.12.
+                # Windows reparse attributes also protect junctions on 3.11.
+                reparse = getattr(path.lstat(), 'st_file_attributes', 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT
+                if not path.is_symlink() and not reparse:
                     path.rmdir()  # Empty directories only, never recursively remove a task.
             except (OSError,ValueError):
                 pass

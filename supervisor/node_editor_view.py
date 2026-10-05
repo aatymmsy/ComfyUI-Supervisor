@@ -42,7 +42,8 @@ def node_table(rows, selected=None):
         if info:
             reason = info['reason']
             value = info['value']
-            switch = (f'<select class="node-switch" data-switch-node="{escape(str(node_id), quote=True)}" data-switch-value="{str(value).lower() if value is not None else ''}" aria-label="切换节点 {escape(str(node_id), quote=True)}" {"disabled" if reason else ""}>'
+            switch_value = str(value).lower() if value is not None else ''
+            switch = (f'<select class="node-switch" data-switch-node="{escape(str(node_id), quote=True)}" data-switch-value="{switch_value}" aria-label="切换节点 {escape(str(node_id), quote=True)}" {"disabled" if reason else ""}>'
                       + ('<option value="" selected>由上游控制</option>' if value is None else '')
                       + f'<option value="true" {"selected" if value else ""}>True · 真</option><option value="false" {"selected" if value is False else ""}>False · 假</option></select>'
                       f'<div class="switch-branches"><div class="{"selected-branch" if value else ""}"><strong>True →</strong> {escape(info["true"])}</div><div class="{"selected-branch" if value is False else ""}"><strong>False →</strong> {escape(info["false"])}</div></div>'

@@ -100,7 +100,7 @@ API Key 默认仅在服务内存中持有，重启后需重新输入；可选择
 
 测试使用隔离数据库、模拟云端和 ComfyUI，不消耗真实生图或付费 API。schemas/ 来自 Pydantic 契约，CI 会检查是否漂移。Windows 启动脚本也支持 -Test。
 
-截至 **2026-10-05**，本机完整回归 **588 项通过**，覆盖规划、控制词传递、自动复核、预算限制、原图恢复、文件保护、交付与界面行为。这是流程与边界验证，不能作为真实评分准确率或成图质量的证明；GitHub Actions 已配置，首次远程结果仍需推送后确认。
+截至 **2026-10-05**，本机 Python 3.13 完整回归 **593 项通过**，覆盖规划、控制词传递、自动复核、预算限制、原图恢复、文件保护、交付与界面行为。这是流程与边界验证，不能作为真实评分准确率或成图质量的证明；Windows Python 3.11 / 3.13 的远端检查见 [GitHub Actions](https://github.com/aatymmsy/ComfyUI-Supervisor/actions/workflows/checks.yml)。
 
     python -m supervisor demo
 

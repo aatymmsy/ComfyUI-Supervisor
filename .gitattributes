@@ -1,0 +1,2 @@
+# Schema generation writes LF; keep checkout bytes consistent on Windows.
+schemas/*.json text eol=lf

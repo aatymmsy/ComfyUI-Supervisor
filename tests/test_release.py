@@ -15,6 +15,32 @@ from tools.build_release import ReleaseError, audit, build, release_files
 ROOT = Path(__file__).resolve().parents[1]
 
 
+@pytest.mark.parametrize('name', ['providers', 'workflow', 'evaluation', 'task'])
+def test_schema_snapshots_match_generated_bytes(name):
+    from supervisor.models import Evaluation, ProvidersConfig, TaskSettings, WorkflowConfig
+    contracts = {'providers': ProvidersConfig, 'workflow': WorkflowConfig,
+                 'evaluation': Evaluation, 'task': TaskSettings}
+    generated = json.dumps(contracts[name].model_json_schema(), indent=2).encode('utf-8')
+    assert (ROOT / 'schemas' / (name + '.schema.json')).read_bytes() == generated
+
+
+def test_schema_checkout_keeps_lf_with_windows_git_settings(tmp_path):
+    git = shutil.which('git')
+    if not git:
+        pytest.skip('Git not installed')
+    subprocess.run([git, 'init', '--quiet', str(tmp_path)], check=True)
+    subprocess.run([git, 'config', 'core.autocrlf', 'true'], cwd=tmp_path, check=True)
+    shutil.copyfile(ROOT / '.gitattributes', tmp_path / '.gitattributes')
+    schema = tmp_path / 'schemas' / 'task.schema.json'
+    schema.parent.mkdir()
+    content = b'{"type": "object"}\n'
+    schema.write_bytes(content)
+    subprocess.run([git, 'add', '.gitattributes', 'schemas/task.schema.json'], cwd=tmp_path, check=True)
+    schema.write_bytes(content.replace(b'\n', b'\r\n'))
+    subprocess.run([git, 'checkout-index', '--force', '--all'], cwd=tmp_path, check=True)
+    assert schema.read_bytes() == content
+
+
 def test_release_excludes_personal_state_and_contains_required_files(tmp_path):
     first = tmp_path / 'first.zip'
     second = tmp_path / 'second.zip'
@@ -23,7 +49,7 @@ def test_release_excludes_personal_state_and_contains_required_files(tmp_path):
     assert build(ROOT, second)['sha256'] == report['sha256']
     with zipfile.ZipFile(first) as archive:
         names = {name.removeprefix('comfyui-supervisor/') for name in archive.namelist()}
-        assert {'LICENSE', 'start.ps1', '.github/workflows/checks.yml', 'tools/build_release.py',
+        assert {'LICENSE', '.gitattributes', 'start.ps1', '.github/workflows/checks.yml', 'tools/build_release.py',
                 'supervisor/image_workflow.py', 'config/providers.example.yaml', 'workflows/example-api.json'} <= names
         assert all('.local.' not in name and '__pycache__' not in name and not name.startswith(('data/', '.venv/', 'examples/')) for name in names)
         assert {name for name in names if name.startswith('workflows/')} == {'workflows/example-api.json'}
