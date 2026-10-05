@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "comfyui-supervisor"
+version = "0.1.0"
+description = "Human-supervised ComfyUI generation, cloud review and auditable delivery"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+dependencies = ["gradio>=6.29,<7", "pydantic>=2.9,<3", "httpx>=0.27,<1", "websockets>=13,<17", "Pillow>=11,<13", "PyYAML>=6,<7", "keyring>=25,<26", "python-dotenv>=1,<2", "numpy>=1.26,<3"]
+
+[project.optional-dependencies]
+test = ["pytest>=8,<10", "pytest-asyncio>=0.24,<2"]
+metrics = ["torch>=2.6", "transformers>=4.45,<5"]
+
+[project.scripts]
+comfy-supervisor = "supervisor.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["supervisor*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+

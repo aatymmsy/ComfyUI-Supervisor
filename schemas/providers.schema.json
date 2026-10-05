@@ -1,0 +1,396 @@
+{
+  "$defs": {
+    "Credential": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "api_key_env": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Api Key Env"
+        },
+        "secret_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Secret Ref"
+        },
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "Credential",
+      "type": "object"
+    },
+    "ModelConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "text": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Text"
+        },
+        "vision": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vision"
+        },
+        "json_schema": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Json Schema"
+        },
+        "max_output_tokens": {
+          "default": 1800,
+          "maximum": 12000,
+          "minimum": 256,
+          "title": "Max Output Tokens",
+          "type": "integer"
+        },
+        "context_window": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Context Window"
+        },
+        "max_long_edge": {
+          "default": 1536,
+          "maximum": 8192,
+          "minimum": 128,
+          "title": "Max Long Edge",
+          "type": "integer"
+        },
+        "max_images": {
+          "default": 10,
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Max Images",
+          "type": "integer"
+        },
+        "pricing": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Pricing"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "ModelConfig",
+      "type": "object"
+    },
+    "Policy": {
+      "additionalProperties": false,
+      "properties": {
+        "nsfw_policy": {
+          "default": "unknown",
+          "enum": [
+            "allowed",
+            "forbidden",
+            "unknown"
+          ],
+          "title": "Nsfw Policy",
+          "type": "string"
+        },
+        "evidence": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence"
+        },
+        "review_due": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Review Due"
+        },
+        "allowed_content": {
+          "items": {
+            "enum": [
+              "sfw",
+              "adult_allowed",
+              "unknown",
+              "blocked"
+            ],
+            "type": "string"
+          },
+          "title": "Allowed Content",
+          "type": "array"
+        },
+        "allow_unknown_input": {
+          "default": false,
+          "title": "Allow Unknown Input",
+          "type": "boolean"
+        }
+      },
+      "title": "Policy",
+      "type": "object"
+    },
+    "Pricing": {
+      "additionalProperties": false,
+      "properties": {
+        "currency": {
+          "default": "USD",
+          "title": "Currency",
+          "type": "string"
+        },
+        "input_per_million_micro": {
+          "minimum": 0,
+          "title": "Input Per Million Micro",
+          "type": "integer"
+        },
+        "output_per_million_micro": {
+          "minimum": 0,
+          "title": "Output Per Million Micro",
+          "type": "integer"
+        },
+        "image_input_tokens_bound": {
+          "default": 4096,
+          "minimum": 0,
+          "title": "Image Input Tokens Bound",
+          "type": "integer"
+        },
+        "max_call_micro": {
+          "exclusiveMinimum": 0,
+          "title": "Max Call Micro",
+          "type": "integer"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "verified_at": {
+          "title": "Verified At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "input_per_million_micro",
+        "output_per_million_micro",
+        "max_call_micro",
+        "source",
+        "verified_at"
+      ],
+      "title": "Pricing",
+      "type": "object"
+    },
+    "Provider": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "default": "openai_compatible",
+          "enum": [
+            "openai_compatible",
+            "openai_responses",
+            "anthropic",
+            "gemini",
+            "custom"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "priority": {
+          "default": 10,
+          "title": "Priority",
+          "type": "integer"
+        },
+        "base_url": {
+          "title": "Base Url",
+          "type": "string"
+        },
+        "credentials": {
+          "items": {
+            "$ref": "#/$defs/Credential"
+          },
+          "title": "Credentials",
+          "type": "array"
+        },
+        "models_endpoint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": "/models",
+          "title": "Models Endpoint"
+        },
+        "chat_endpoint": {
+          "default": "/chat/completions",
+          "title": "Chat Endpoint",
+          "type": "string"
+        },
+        "responses_endpoint": {
+          "default": "/responses",
+          "title": "Responses Endpoint",
+          "type": "string"
+        },
+        "policy": {
+          "$ref": "#/$defs/Policy"
+        },
+        "models": {
+          "items": {
+            "$ref": "#/$defs/ModelConfig"
+          },
+          "title": "Models",
+          "type": "array"
+        },
+        "timeout_seconds": {
+          "default": 90,
+          "maximum": 600,
+          "minimum": 1,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        },
+        "concurrency": {
+          "default": 1,
+          "maximum": 10,
+          "minimum": 1,
+          "title": "Concurrency",
+          "type": "integer"
+        },
+        "rpm": {
+          "default": 10,
+          "minimum": 1,
+          "title": "Rpm",
+          "type": "integer"
+        },
+        "retries": {
+          "default": 1,
+          "maximum": 3,
+          "minimum": 0,
+          "title": "Retries",
+          "type": "integer"
+        },
+        "upstream_allowlist": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Upstream Allowlist",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "base_url"
+      ],
+      "title": "Provider",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "providers": {
+      "items": {
+        "$ref": "#/$defs/Provider"
+      },
+      "title": "Providers",
+      "type": "array"
+    },
+    "routes": {
+      "additionalProperties": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "title": "Routes",
+      "type": "object"
+    }
+  },
+  "title": "ProvidersConfig",
+  "type": "object"
+}

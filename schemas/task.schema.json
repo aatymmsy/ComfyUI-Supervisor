@@ -1,0 +1,467 @@
+{
+  "$defs": {
+    "CharacterControl": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "maxLength": 600,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "groups": {
+          "items": {
+            "maximum": 20,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "maxItems": 20,
+          "title": "Groups",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "CharacterControl",
+      "type": "object"
+    },
+    "ControlWord": {
+      "additionalProperties": false,
+      "properties": {
+        "word": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Word",
+          "type": "string"
+        },
+        "weight": {
+          "anyOf": [
+            {
+              "maximum": 3,
+              "minimum": 0.1,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Weight"
+        },
+        "group": {
+          "anyOf": [
+            {
+              "maximum": 20,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Group"
+        },
+        "weight_group": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Tags from the same input row share this weight group within their theme group",
+          "title": "Weight Group"
+        }
+      },
+      "required": [
+        "word"
+      ],
+      "title": "ControlWord",
+      "type": "object"
+    },
+    "Params": {
+      "additionalProperties": false,
+      "properties": {
+        "steps": {
+          "default": 20,
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Steps",
+          "type": "integer"
+        },
+        "cfg": {
+          "default": 7,
+          "maximum": 30,
+          "minimum": 0,
+          "title": "Cfg",
+          "type": "number"
+        },
+        "sampler": {
+          "default": "euler",
+          "title": "Sampler",
+          "type": "string"
+        },
+        "scheduler": {
+          "default": "normal",
+          "title": "Scheduler",
+          "type": "string"
+        },
+        "seed": {
+          "default": 0,
+          "maximum": 9223372036854775807,
+          "minimum": 0,
+          "title": "Seed",
+          "type": "integer"
+        },
+        "width": {
+          "default": 768,
+          "maximum": 4096,
+          "minimum": 64,
+          "title": "Width",
+          "type": "integer"
+        },
+        "height": {
+          "default": 768,
+          "maximum": 4096,
+          "minimum": 64,
+          "title": "Height",
+          "type": "integer"
+        },
+        "batch_size": {
+          "const": 1,
+          "default": 1,
+          "title": "Batch Size",
+          "type": "integer"
+        }
+      },
+      "title": "Params",
+      "type": "object"
+    },
+    "ResultRetry": {
+      "additionalProperties": false,
+      "properties": {
+        "source_task": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Source Task",
+          "type": "string"
+        },
+        "source_asset": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Source Asset",
+          "type": "string"
+        },
+        "feedback": {
+          "default": "\u4eba\u5de5\u5ba1\u67e5\u8ba4\u4e3a\u8fd9\u5f20\u56fe\u4e0d\u8fbe\u6807\uff0c\u8bf7\u6839\u636e\u5df2\u6709\u8bc4\u5ba1\u6539\u5584\u660e\u663e\u7f3a\u9677\uff0c\u4fdd\u7559\u539f\u56fe\u7684\u5185\u5bb9\u8981\u6c42\u3002",
+          "maxLength": 1000,
+          "title": "Feedback",
+          "type": "string"
+        },
+        "review": {
+          "additionalProperties": true,
+          "title": "Review",
+          "type": "object"
+        }
+      },
+      "required": [
+        "source_task",
+        "source_asset"
+      ],
+      "title": "ResultRetry",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "goal": {
+      "maxLength": 3000,
+      "minLength": 1,
+      "title": "Goal",
+      "type": "string"
+    },
+    "autonomous": {
+      "default": false,
+      "title": "Autonomous",
+      "type": "boolean"
+    },
+    "direct_prompt": {
+      "anyOf": [
+        {
+          "maxLength": 12000,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Direct Prompt"
+    },
+    "direct_negative": {
+      "default": "",
+      "maxLength": 6000,
+      "title": "Direct Negative",
+      "type": "string"
+    },
+    "result_retry": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ResultRetry"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "review_enabled": {
+      "default": true,
+      "title": "Review Enabled",
+      "type": "boolean"
+    },
+    "reference_only": {
+      "default": false,
+      "title": "Reference Only",
+      "type": "boolean"
+    },
+    "images_only_delivery": {
+      "default": false,
+      "title": "Images Only Delivery",
+      "type": "boolean"
+    },
+    "prompt_examples": {
+      "default": "",
+      "maxLength": 12000,
+      "title": "Prompt Examples",
+      "type": "string"
+    },
+    "lora_trigger_words": {
+      "default": "",
+      "maxLength": 2000,
+      "title": "Lora Trigger Words",
+      "type": "string"
+    },
+    "character": {
+      "default": "",
+      "maxLength": 600,
+      "title": "Character",
+      "type": "string"
+    },
+    "character_controls": {
+      "items": {
+        "$ref": "#/$defs/CharacterControl"
+      },
+      "maxItems": 30,
+      "title": "Character Controls",
+      "type": "array"
+    },
+    "control_words": {
+      "items": {
+        "$ref": "#/$defs/ControlWord"
+      },
+      "maxItems": 300,
+      "title": "Control Words",
+      "type": "array"
+    },
+    "target_styles": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 100,
+      "title": "Target Styles",
+      "type": "array"
+    },
+    "export_folder": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Export Folder"
+    },
+    "delivery_layout": {
+      "default": "task_folder",
+      "enum": [
+        "task_folder",
+        "flat"
+      ],
+      "title": "Delivery Layout",
+      "type": "string"
+    },
+    "delivery_format": {
+      "default": "files",
+      "enum": [
+        "files",
+        "zip"
+      ],
+      "title": "Delivery Format",
+      "type": "string"
+    },
+    "groups": {
+      "default": 2,
+      "maximum": 20,
+      "minimum": 1,
+      "title": "Groups",
+      "type": "integer"
+    },
+    "per_group": {
+      "default": 2,
+      "maximum": 50,
+      "minimum": 1,
+      "title": "Per Group",
+      "type": "integer"
+    },
+    "max_rounds": {
+      "default": 8,
+      "maximum": 100,
+      "minimum": 1,
+      "title": "Max Rounds",
+      "type": "integer"
+    },
+    "max_generations": {
+      "default": 1000,
+      "maximum": 5000,
+      "minimum": 1,
+      "title": "Max Generations",
+      "type": "integer"
+    },
+    "max_runtime_seconds": {
+      "default": 7200,
+      "maximum": 86400,
+      "minimum": 1,
+      "title": "Max Runtime Seconds",
+      "type": "integer"
+    },
+    "patience": {
+      "default": 3,
+      "maximum": 20,
+      "minimum": 1,
+      "title": "Patience",
+      "type": "integer"
+    },
+    "budget_micro": {
+      "default": 1000000,
+      "minimum": 0,
+      "title": "Budget Micro",
+      "type": "integer"
+    },
+    "token_budget": {
+      "default": 50000,
+      "maximum": 2000000,
+      "minimum": 1000,
+      "title": "Token Budget",
+      "type": "integer"
+    },
+    "currency": {
+      "default": "USD",
+      "title": "Currency",
+      "type": "string"
+    },
+    "quality_threshold": {
+      "default": 42,
+      "maximum": 100,
+      "minimum": 0,
+      "title": "Quality Threshold",
+      "type": "number"
+    },
+    "content_label": {
+      "default": "unknown",
+      "enum": [
+        "sfw",
+        "adult_allowed",
+        "unknown",
+        "blocked"
+      ],
+      "title": "Content Label",
+      "type": "string"
+    },
+    "delete_mode": {
+      "default": "quarantine",
+      "enum": [
+        "quarantine",
+        "delayed",
+        "direct"
+      ],
+      "title": "Delete Mode",
+      "type": "string"
+    },
+    "allow_permanent_delete": {
+      "default": false,
+      "title": "Allow Permanent Delete",
+      "type": "boolean"
+    },
+    "calibrated": {
+      "default": false,
+      "title": "Calibrated",
+      "type": "boolean"
+    },
+    "retention_days": {
+      "default": 7,
+      "maximum": 365,
+      "minimum": 1,
+      "title": "Retention Days",
+      "type": "integer"
+    },
+    "prescreen": {
+      "default": true,
+      "title": "Prescreen",
+      "type": "boolean"
+    },
+    "auto_candidates": {
+      "default": false,
+      "title": "Auto Candidates",
+      "type": "boolean"
+    },
+    "auto_iterations": {
+      "default": false,
+      "title": "Auto Iterations",
+      "type": "boolean"
+    },
+    "demo": {
+      "default": true,
+      "title": "Demo",
+      "type": "boolean"
+    },
+    "input_folder": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Input Folder"
+    },
+    "sample_count": {
+      "default": 15,
+      "minimum": 1,
+      "title": "Sample Count",
+      "type": "integer"
+    },
+    "sample_seed": {
+      "default": 42,
+      "title": "Sample Seed",
+      "type": "integer"
+    },
+    "params": {
+      "$ref": "#/$defs/Params"
+    }
+  },
+  "required": [
+    "goal"
+  ],
+  "title": "TaskSettings",
+  "type": "object"
+}

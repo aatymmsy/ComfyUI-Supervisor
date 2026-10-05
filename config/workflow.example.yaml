@@ -1,0 +1,27 @@
+schema_version: 1
+base_url: http://127.0.0.1:8188
+workflow_api_json: workflows/example-api.json
+workflow_hash: null
+bindings:
+  positive: [{node_id: "6", class_type: CLIPTextEncode, input: text, value_type: string}]
+  negative: [{node_id: "7", class_type: CLIPTextEncode, input: text, value_type: string}]
+  seed: [{node_id: "3", class_type: KSampler, input: seed, value_type: integer}]
+  steps: [{node_id: "3", class_type: KSampler, input: steps, value_type: integer}]
+  cfg: [{node_id: "3", class_type: KSampler, input: cfg, value_type: number}]
+  sampler: [{node_id: "3", class_type: KSampler, input: sampler_name, value_type: string}]
+  scheduler: [{node_id: "3", class_type: KSampler, input: scheduler, value_type: string}]
+  width: [{node_id: "5", class_type: EmptyLatentImage, input: width, value_type: integer}]
+  height: [{node_id: "5", class_type: EmptyLatentImage, input: height, value_type: integer}]
+  batch_size: [{node_id: "5", class_type: EmptyLatentImage, input: batch_size, value_type: integer}]
+  filename_prefix: [{node_id: "9", class_type: SaveImage, input: filename_prefix, value_type: string}]
+output_nodes: ["9"]
+constraints:
+  steps: {min: 1, max: 60}
+  cfg: {min: 0, max: 15}
+  width: {min: 512, max: 1536, multiple_of: 64}
+  height: {min: 512, max: 1536, multiple_of: 64}
+  sampler: [euler]
+  scheduler: [normal]
+timeout_seconds: 900
+reconcile_interval: 10
+

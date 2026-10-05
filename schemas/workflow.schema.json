@@ -1,0 +1,168 @@
+{
+  "$defs": {
+    "Binding": {
+      "additionalProperties": false,
+      "properties": {
+        "node_id": {
+          "title": "Node Id",
+          "type": "string"
+        },
+        "class_type": {
+          "title": "Class Type",
+          "type": "string"
+        },
+        "input": {
+          "title": "Input",
+          "type": "string"
+        },
+        "value_type": {
+          "enum": [
+            "string",
+            "integer",
+            "number"
+          ],
+          "title": "Value Type",
+          "type": "string"
+        },
+        "replace_text_link": {
+          "default": false,
+          "title": "Replace Text Link",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "node_id",
+        "class_type",
+        "input",
+        "value_type"
+      ],
+      "title": "Binding",
+      "type": "object"
+    },
+    "WorkflowSwitch": {
+      "additionalProperties": false,
+      "properties": {
+        "class_type": {
+          "title": "Class Type",
+          "type": "string"
+        },
+        "input": {
+          "title": "Input",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "class_type",
+        "input",
+        "value"
+      ],
+      "title": "WorkflowSwitch",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "base_url": {
+      "default": "http://127.0.0.1:8188",
+      "title": "Base Url",
+      "type": "string"
+    },
+    "ws_url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ws Url"
+    },
+    "workflow_api_json": {
+      "title": "Workflow Api Json",
+      "type": "string"
+    },
+    "workflow_hash": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Workflow Hash"
+    },
+    "bindings": {
+      "additionalProperties": {
+        "items": {
+          "$ref": "#/$defs/Binding"
+        },
+        "type": "array"
+      },
+      "title": "Bindings",
+      "type": "object"
+    },
+    "output_nodes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Output Nodes",
+      "type": "array"
+    },
+    "bypass_nodes": {
+      "additionalProperties": {
+        "additionalProperties": {
+          "items": {},
+          "type": "array"
+        },
+        "type": "object"
+      },
+      "title": "Bypass Nodes",
+      "type": "object"
+    },
+    "switch_nodes": {
+      "additionalProperties": {
+        "$ref": "#/$defs/WorkflowSwitch"
+      },
+      "title": "Switch Nodes",
+      "type": "object"
+    },
+    "constraints": {
+      "additionalProperties": true,
+      "title": "Constraints",
+      "type": "object"
+    },
+    "timeout_seconds": {
+      "default": 900,
+      "minimum": 1,
+      "title": "Timeout Seconds",
+      "type": "integer"
+    },
+    "reconcile_interval": {
+      "default": 10,
+      "exclusiveMinimum": 0,
+      "title": "Reconcile Interval",
+      "type": "number"
+    }
+  },
+  "required": [
+    "workflow_api_json",
+    "bindings",
+    "output_nodes"
+  ],
+  "title": "WorkflowConfig",
+  "type": "object"
+}

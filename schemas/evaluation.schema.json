@@ -1,0 +1,437 @@
+{
+  "$defs": {
+    "Issue": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "enum": [
+            "composition_failure",
+            "anatomy_error",
+            "style_drift",
+            "target_mismatch",
+            "duplicate",
+            "blur",
+            "artifacts",
+            "other"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "minor",
+            "major",
+            "critical"
+          ],
+          "title": "Severity",
+          "type": "string"
+        },
+        "region": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Region"
+        },
+        "evidence": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Evidence",
+          "type": "string"
+        }
+      },
+      "required": [
+        "category",
+        "severity",
+        "region",
+        "evidence"
+      ],
+      "title": "Issue",
+      "type": "object"
+    },
+    "Suggestion": {
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "title": "Field",
+          "type": "string"
+        },
+        "suggestion": {
+          "maxLength": 1000,
+          "title": "Suggestion",
+          "type": "string"
+        },
+        "expected_effect": {
+          "maxLength": 500,
+          "title": "Expected Effect",
+          "type": "string"
+        }
+      },
+      "required": [
+        "field",
+        "suggestion",
+        "expected_effect"
+      ],
+      "title": "Suggestion",
+      "type": "object"
+    },
+    "VisualChecks": {
+      "additionalProperties": false,
+      "properties": {
+        "extra_limbs": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Extra Limbs"
+        },
+        "missing_parts": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Missing Parts"
+        },
+        "fused_bodies": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Fused Bodies"
+        },
+        "disconnected_parts": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Disconnected Parts"
+        },
+        "duplicated_body": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Duplicated Body"
+        },
+        "content_violation": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Content Violation"
+        },
+        "evidence": {
+          "maxLength": 500,
+          "title": "Evidence",
+          "type": "string"
+        }
+      },
+      "required": [
+        "extra_limbs",
+        "missing_parts",
+        "fused_bodies",
+        "disconnected_parts",
+        "duplicated_body",
+        "content_violation",
+        "evidence"
+      ],
+      "title": "VisualChecks",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "asset_id": {
+      "title": "Asset Id",
+      "type": "string"
+    },
+    "stage": {
+      "enum": [
+        "prescreen",
+        "final"
+      ],
+      "title": "Stage",
+      "type": "string"
+    },
+    "overall": {
+      "anyOf": [
+        {
+          "maximum": 100,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Overall"
+    },
+    "prompt_alignment": {
+      "anyOf": [
+        {
+          "maximum": 100,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Prompt Alignment"
+    },
+    "aesthetics": {
+      "anyOf": [
+        {
+          "maximum": 100,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Aesthetics"
+    },
+    "composition": {
+      "anyOf": [
+        {
+          "maximum": 100,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Composition"
+    },
+    "anatomy": {
+      "anyOf": [
+        {
+          "maximum": 100,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Anatomy"
+    },
+    "artifacts": {
+      "anyOf": [
+        {
+          "maximum": 100,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Artifacts"
+    },
+    "style_match": {
+      "anyOf": [
+        {
+          "maximum": 100,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Style Match"
+    },
+    "nsfw_target": {
+      "anyOf": [
+        {
+          "maximum": 100,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Nsfw Target"
+    },
+    "structure": {
+      "anyOf": [
+        {
+          "maximum": 100,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Structure"
+    },
+    "hands": {
+      "anyOf": [
+        {
+          "maximum": 100,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Hands"
+    },
+    "text_quality": {
+      "anyOf": [
+        {
+          "maximum": 100,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Text Quality"
+    },
+    "safety_score": {
+      "anyOf": [
+        {
+          "maximum": 100,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Safety Score"
+    },
+    "visual_checks": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/VisualChecks"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "traditional": {
+      "additionalProperties": true,
+      "title": "Traditional",
+      "type": "object"
+    },
+    "decision": {
+      "enum": [
+        "keep",
+        "retry",
+        "delete",
+        "review"
+      ],
+      "title": "Decision",
+      "type": "string"
+    },
+    "delete_reason": {
+      "items": {
+        "enum": [
+          "composition_failure",
+          "anatomy_error",
+          "style_drift",
+          "target_mismatch",
+          "duplicate",
+          "blur",
+          "artifacts",
+          "other"
+        ],
+        "type": "string"
+      },
+      "maxItems": 8,
+      "title": "Delete Reason",
+      "type": "array"
+    },
+    "prompt_suggestions": {
+      "items": {
+        "$ref": "#/$defs/Suggestion"
+      },
+      "maxItems": 2,
+      "title": "Prompt Suggestions",
+      "type": "array"
+    },
+    "issues": {
+      "items": {
+        "$ref": "#/$defs/Issue"
+      },
+      "maxItems": 12,
+      "title": "Issues",
+      "type": "array"
+    },
+    "unassessable_fields": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Unassessable Fields",
+      "type": "array"
+    }
+  },
+  "required": [
+    "asset_id",
+    "stage",
+    "overall",
+    "prompt_alignment",
+    "aesthetics",
+    "composition",
+    "anatomy",
+    "artifacts",
+    "style_match",
+    "nsfw_target",
+    "decision",
+    "delete_reason",
+    "prompt_suggestions",
+    "issues",
+    "unassessable_fields"
+  ],
+  "title": "Evaluation",
+  "type": "object"
+}
