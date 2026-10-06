@@ -41,6 +41,7 @@ from .discussion import Discussion
 from .result_batch_view import RESULT_BATCH_CSS, RESULT_BATCH_JS
 from .action_feedback import ACTION_CSS, install_action_feedback
 from .delivery import export_image_zip
+from .upload_view import UPLOAD_CSS, UPLOAD_JS
 
 CSS = """
 .gradio-container { width: 100% !important; max-width: 1440px !important; min-width: 0 !important; box-sizing: border-box !important; margin: auto; }
@@ -304,11 +305,11 @@ def build_ui(service: Supervisor):
                         workflow_source = gr.Textbox(label="识别来源", interactive=False, value="尚未识别" if not service.workflow else "已配置工作流")
                         workflow_nodes = gr.HTML(value=workflow_summary_html(configured_nodes), elem_id="workflow-nodes", visible=False)
                         with gr.Row():
-                            workflow_upload = gr.File(label="拖入其他工作流（API JSON）", file_types=[".json"], type="filepath", height=150)
+                            workflow_upload = gr.File(label="拖入其他工作流（API JSON）", file_types=[".json"], type="filepath", height=150, elem_id='workflow-api-upload', elem_classes=['supervisor-upload'])
                             save_comfy = gr.Button("Import workflow", scale=0)
                     with gr.Row():
                         with gr.Column(scale=0,min_width=260,elem_id='workflow-image-uploader'):
-                            workflow_image_upload = gr.File(label='上传图片识别工作流',file_types=['.png','.webp','.jpg','.jpeg'],type='filepath',height=112,elem_id='workflow-image-upload')
+                            workflow_image_upload = gr.File(label='上传图片识别工作流',file_types=['.png','.webp','.jpg','.jpeg'],type='filepath',height=112,elem_id='workflow-image-upload',elem_classes=['supervisor-upload','supervisor-image-upload'])
                         workflow_image_status = gr.Markdown('需包含 ComfyUI 工作流元数据；推荐使用原始 PNG。上传后自动导入。',elem_id='workflow-image-status')
                     gr.Markdown("下表读取本应用已导入的工作流，不会读取 ComfyUI 画布上尚未执行的修改。更换工作流请上传 API JSON 或原图；表下 LoRA 列表是本机可添加的模型，不代表已加载。绕过和分支选择开始新任务时生效；其他参数需保存。")
                     editor_refresh = gr.Button("Read workflow parameters",elem_id="editor-refresh")
@@ -343,7 +344,7 @@ def build_ui(service: Supervisor):
                                             sample_reset = gr.Button("↺",size="sm",scale=0,min_width=28,elem_id="reference-count-reset")
                                             sample_shuffle = gr.Button("换一批",size="sm",scale=0,min_width=60,elem_id="reference-shuffle")
                                 with gr.Column(elem_id="reference-images") as reference_images:
-                                    studio_uploads = gr.File(label="参考图片 *", file_count="multiple", file_types=["image"], type="filepath", height=110, elem_id="studio-references")
+                                    studio_uploads = gr.File(label="参考图片 *", file_count="multiple", file_types=["image"], type="filepath", height=110, elem_id="studio-references", elem_classes=['supervisor-upload','supervisor-image-upload'])
                                 with gr.Column(visible=False,elem_id="reference-folder") as reference_folder:
                                     browse_reference = gr.Button("选择文件夹…",elem_id="reference-folder-picker")
                                     studio_folder = gr.Textbox(label="已选文件夹",value="",interactive=False,placeholder="点击上方按钮选择，路径自动填写",info="按设置的参考图数量随机抽样，只缓存抽中的图片。",elem_id="studio-folder")
@@ -442,15 +443,15 @@ def build_ui(service: Supervisor):
                     with gr.Row(elem_id='caption-panel'):
                         with gr.Column(scale=0,min_width=200,elem_id='caption-uploader'):
                             caption_available = gr.Checkbox(value=bool(configured_branch(service)),visible=False)
-                            caption_input = gr.Image(label='图片反推',type='filepath',sources=['upload'],height=96,
-                                interactive=bool(configured_branch(service)),buttons=[],elem_id='caption-input',
-                                elem_classes=[] if configured_branch(service) else ['caption-disabled'])
-                            caption_workflow_input = gr.File(label='上传图片识别工作流',file_types=['.png','.webp','.jpg','.jpeg'],type='filepath',height=96,visible=False,elem_id='caption-workflow-input')
+                            caption_input = gr.File(label='图片反推',type='filepath',file_types=['.png','.webp','.jpg','.jpeg'],height=96,
+                                interactive=bool(configured_branch(service)),elem_id='caption-input',
+                                elem_classes=['supervisor-upload','supervisor-image-upload'] + ([] if configured_branch(service) else ['caption-disabled']))
+                            caption_workflow_input = gr.File(label='上传图片识别工作流',file_types=['.png','.webp','.jpg','.jpeg'],type='filepath',height=96,visible=False,elem_id='caption-workflow-input',elem_classes=['supervisor-upload','supervisor-image-upload'])
                             caption_workflow_mode = gr.Checkbox(label='传图识别工作流',value=False,elem_id='caption-workflow-mode')
                             caption_status = gr.Markdown('仅运行工作流反推分支，填入正向提示词。' if configured_branch(service) else '当前工作流没有反推分支；可用右侧图片识别。',elem_id='caption-status',elem_classes=['image-prompt-note'])
                         with gr.Column(scale=0,min_width=200,elem_id='prompt-image-uploader'):
                             # File preserves original metadata; Image preprocessing can strip it.
-                            prompt_image_input = gr.File(label='输入图片识别',file_types=['.png','.webp','.jpg','.jpeg'],type='filepath',height=96,elem_id='prompt-image-input')
+                            prompt_image_input = gr.File(label='输入图片识别',file_types=['.png','.webp','.jpg','.jpeg'],type='filepath',height=96,elem_id='prompt-image-input',elem_classes=['supervisor-upload','supervisor-image-upload'])
                             prompt_image_status = gr.Markdown('优先读取元数据提示词；没有则用视觉模型反推，填入正负提示词。',elem_id='prompt-image-status',elem_classes=['image-prompt-note'])
                             with gr.Accordion('模型反推限额',open=False):
                                 image_prompt_budget = gr.Number(value=.1,minimum=0,label='预算上限（USD）')
@@ -509,7 +510,7 @@ def build_ui(service: Supervisor):
                             threshold = gr.Slider(0, 100, value=PASS_SCORE, step=1, label="Quality threshold")
                             label = gr.Dropdown(["unknown", "sfw", "adult_allowed"], value="unknown", label="User-confirmed content scope")
                             folder = gr.Textbox(label="Reference folder", placeholder="Absolute folder path")
-                            uploads = gr.File(label="Reference images", file_count="multiple", file_types=["image"], type="filepath")
+                            uploads = gr.File(label="Reference images", file_count="multiple", file_types=["image"], type="filepath", elem_id='manual-references', elem_classes=['supervisor-upload','supervisor-image-upload'])
                             with gr.Accordion("Generation parameters", open=False, elem_classes=["scroll-section"]):
                                 with gr.Row():
                                     width = gr.Number(value=768, precision=0, label="Width")
@@ -1075,7 +1076,7 @@ def build_ui(service: Supervisor):
             return changes
 
         language_outputs = [c for c, _ in registry] + [title, appearance, appearance_panel, accent, mist, drizzle, reset_appearance]
-        init = app.load(fn=None, outputs=[language, appearance, accent, mist, drizzle,glass_blur,glass_opacity,appearance_preset], js=APPEARANCE_JS).then(fn=lambda:None,js=STUDIO_VIEW_JS).then(fn=lambda:None,js=NODE_EDITOR_JS)
+        init = app.load(fn=None, outputs=[language, appearance, accent, mist, drizzle,glass_blur,glass_opacity,appearance_preset], js=APPEARANCE_JS).then(fn=lambda:None,js=STUDIO_VIEW_JS).then(fn=lambda:None,js=NODE_EDITOR_JS).then(fn=None,js=UPLOAD_JS)
         init.then(switch_preferences, [language, message, task], language_outputs,show_progress="hidden").then(refresh_all, refresh_inputs, outputs,js=refresh_selection_js,show_progress="hidden")
         language.change(switch_preferences, [language, message, task], language_outputs, show_progress="hidden",js="(lang, activity, taskId) => { window.supervisorLanguage = lang; try { localStorage.setItem('supervisor.language', lang); } catch {} return [lang, activity, taskId]; }").then(refresh_all, refresh_inputs, outputs,js=refresh_selection_js,show_progress="hidden")
         appearance_inputs = [appearance,accent,mist,drizzle,glass_blur,glass_opacity]
@@ -1482,7 +1483,7 @@ def build_ui(service: Supervisor):
             except (ValueError,OSError) as exc:
                 gr.Warning(str(exc),duration=10)
                 yield gr.update(),'反推失败：'+str(exc)
-        caption_input.upload(caption_uploaded,caption_input,[direct_positive,caption_status],concurrency_id='prompt-image-input',concurrency_limit=1,show_progress='hidden')
+        caption_input.upload(caption_uploaded,caption_input,[direct_positive,caption_status],concurrency_id='prompt-image-input',concurrency_limit=1,show_progress='hidden',trigger_mode='always_last')
 
         async def prompt_image_uploaded(image,scope,usd,token_limit):
             if not image:
@@ -1510,7 +1511,7 @@ def build_ui(service: Supervisor):
                 result=str(exc) if isinstance(exc,(ValueError,OSError)) else form_error(exc,'zh')
                 yield gr.update(),gr.update(),'图片识别失败：'+result+'；原提示词已保留。'
         prompt_image_input.upload(prompt_image_uploaded,[prompt_image_input,direct_scope,image_prompt_budget,image_prompt_tokens],
-            [direct_positive,direct_negative,prompt_image_status],concurrency_id='prompt-image-input',concurrency_limit=1,show_progress='hidden')
+            [direct_positive,direct_negative,prompt_image_status],concurrency_id='prompt-image-input',concurrency_limit=1,show_progress='hidden',trigger_mode='always_last')
 
         async def studio_create(files, directory, input_folder, count, direction, styles, examples, group_count, run_mode,
                           output, w, h, n_steps, guidance, base_seed, scope, quality, usd, n_rounds, hours, lang, sampler, scheduler, reference_seed=None,token_limit=50000,per_group_target=1,control_rows=None,*control_values,on_progress=None,delivery_format='files'):
@@ -1937,10 +1938,10 @@ def build_ui(service: Supervisor):
                     failed[1]=gr.update(value=workflow_summary_html(rows),visible=True)
                 failed[3]=failed[4]=result
                 yield tuple(failed)
-        image_imported=workflow_image_upload.upload(import_workflow_image,[workflow_image_upload,comfy_url,language],image_import_outputs,show_progress='hidden',concurrency_id='image-workflow-import',concurrency_limit=1)
+        image_imported=workflow_image_upload.upload(import_workflow_image,[workflow_image_upload,comfy_url,language],image_import_outputs,show_progress='hidden',concurrency_id='image-workflow-import',concurrency_limit=1,trigger_mode='always_last')
         def import_prompt_workflow_image(upload,address,lang):
             yield from import_workflow_image(upload,address,lang,fill_prompt=True)
-        prompt_image_imported=caption_workflow_input.upload(import_prompt_workflow_image,[caption_workflow_input,comfy_url,language],image_import_outputs,show_progress='hidden',concurrency_id='image-workflow-import',concurrency_limit=1)
+        prompt_image_imported=caption_workflow_input.upload(import_prompt_workflow_image,[caption_workflow_input,comfy_url,language],image_import_outputs,show_progress='hidden',concurrency_id='image-workflow-import',concurrency_limit=1,trigger_mode='always_last')
         for event in (image_imported,prompt_image_imported):
             loaded=event.then(read_editor,outputs=editor_read_outputs,show_progress='hidden').then(select_editor,[editor_field,editor_rows],editor_outputs,show_progress='hidden')
             loaded.then(show_lora_editor,outputs=editor_lora,show_progress='hidden')
@@ -1987,4 +1988,4 @@ def launch(service: Supervisor, port=7860):
     # Serve managed files in place instead of copying every image into ui-cache.
     gr.set_static_paths(paths=[service.files.path('tasks')])
     app = build_ui(service)
-    return app.launch(server_name="127.0.0.1", server_port=port, share=False, show_error=False, run_history=False, footer_links=[], max_file_size="100mb", allowed_paths=[str(service.data_root)], blocked_paths=[str(service.data_root / "supervisor.db"), str(service.data_root / "supervisor.db-wal"), str(service.data_root / "supervisor.db-shm")], css=CSS + APPEARANCE_CSS + STUDIO_VIEW_CSS + NODE_EDITOR_CSS + FROSTED_CSS + RESULT_DELETE_CSS + RESULT_RETRY_CSS + GROUP_QUEUE_CSS + PROGRESS_CSS + RESULT_BATCH_CSS + STARTUP_CSS + ACTION_CSS + CHARACTER_ROWS_CSS, theme=gr.themes.Default(primary_hue="emerald", secondary_hue="rose", neutral_hue="gray"))
+    return app.launch(server_name="127.0.0.1", server_port=port, share=False, show_error=False, run_history=False, footer_links=[], max_file_size="100mb", allowed_paths=[str(service.data_root)], blocked_paths=[str(service.data_root / "supervisor.db"), str(service.data_root / "supervisor.db-wal"), str(service.data_root / "supervisor.db-shm")], css=CSS + APPEARANCE_CSS + STUDIO_VIEW_CSS + NODE_EDITOR_CSS + FROSTED_CSS + RESULT_DELETE_CSS + RESULT_RETRY_CSS + GROUP_QUEUE_CSS + PROGRESS_CSS + RESULT_BATCH_CSS + STARTUP_CSS + ACTION_CSS + CHARACTER_ROWS_CSS + UPLOAD_CSS, theme=gr.themes.Default(primary_hue="emerald", secondary_hue="rose", neutral_hue="gray"))
