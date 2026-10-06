@@ -4,7 +4,8 @@ Files still pass through Gradio's input/upload pipeline and server validation.
 """
 
 UPLOAD_CSS = r"""
-.supervisor-upload {border-style:dashed !important; transition:border-color .15s,background-color .15s;}
+#editor-page .block[id].supervisor-upload {padding:0 !important; border-style:dashed !important; transition:border-color .15s,background-color .15s;}
+#caption-panel {align-items:flex-start !important;}
 .supervisor-upload [data-testid=block-label] {font-size:13px !important;}
 .supervisor-image-upload [data-testid=block-label] > span {display:none;}
 .supervisor-image-upload [data-testid=block-label]::before,
@@ -18,14 +19,16 @@ UPLOAD_CSS = r"""
 .supervisor-image-upload .empty .icon {display:none !important;}
 .supervisor-image-upload .empty::after {content:'当前入口未启用'; font-size:13px; line-height:20px;}
 .supervisor-image-upload[data-upload-lang=en] .empty::after {content:'This upload is disabled'; font-size:12px;}
-.supervisor-upload [data-testid=upload-text] {display:flex !important; flex-direction:column; align-items:center; justify-content:center; gap:8px; font-size:0 !important; line-height:0 !important; min-width:0; width:100%;}
+.supervisor-upload [data-testid=upload-text] {display:block !important; position:relative; font-size:0 !important; line-height:0 !important; min-width:0; width:100%; height:54px !important; min-height:54px !important;}
+.supervisor-upload [data-testid=upload-text]::before {position:absolute; top:0; left:50%; transform:translateX(-50%);}
 .supervisor-upload [data-testid=upload-text] > * {display:none !important;}
-.supervisor-upload [data-testid=upload-text]::after {content:'拖入图片或点击上传'; font-size:13px; font-weight:400; line-height:20px; white-space:nowrap;}
+.supervisor-upload [data-testid=upload-text]::after {content:'拖入图片或点击上传'; position:absolute; bottom:0; left:0; width:100%; text-align:center; font-size:13px; font-weight:400; line-height:20px; white-space:nowrap;}
 #workflow-api-upload [data-testid=upload-text]::after {content:'拖入 JSON 或点击上传';}
 #workflow-api-upload [data-testid=upload-text]::before {mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6'/%3E%3C/svg%3E");}
 .supervisor-upload[data-upload-lang=en] [data-testid=upload-text]::after {content:'Drop images or click to upload'; font-size:12px;}
 #workflow-api-upload[data-upload-lang=en] [data-testid=upload-text]::after {content:'Drop JSON or click to upload';}
 .supervisor-upload .upload-container {padding:20px 8px 8px !important; box-sizing:border-box !important;}
+#caption-panel .supervisor-upload .upload-container {width:100% !important; height:100% !important;}
 .supervisor-upload.upload-drag-active {border-color:var(--color-accent,#287b62) !important; background:color-mix(in srgb,var(--color-accent,#287b62) 12%,transparent) !important; outline:2px solid var(--color-accent,#287b62); outline-offset:-2px;}
 .supervisor-upload.upload-drag-invalid {border-color:#d15d55 !important; outline:2px solid #d15d55; outline-offset:-2px;}
 #supervisor-upload-feedback {position:fixed; bottom:24px; left:50%; transform:translateX(-50%); z-index:10000; max-width:calc(100vw - 32px); padding:10px 16px; border:1px solid var(--border-color-primary,#777); border-radius:8px; background:var(--background-fill-primary,#fff); color:var(--body-text-color,#222); box-shadow:0 4px 20px #0002; font-size:13px; pointer-events:none;}
