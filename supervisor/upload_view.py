@@ -91,9 +91,10 @@ UPLOAD_JS = r"""() => {
     if (disabled(root)) { message('此上传入口尚未启用，请使用其他入口。', 'This upload is disabled. Please use another entry.'); return; }
     if (busy.has(root)) { message('正在切换上传文件，请稍后再拖入。', 'The upload is being replaced. Please try again shortly.'); return; }
     const multiple = ['studio-references', 'manual-references'].includes(root.id);
+    const anyImage = multiple || root.id === 'caption-input';
     const json = root.id === 'workflow-api-upload';
     if (!multiple && files.length !== 1) { message('此处每次只能上传一个文件。', 'Drop one file at a time here.'); return; }
-    const valid = file => json ? /\.json$/i.test(file.name) : multiple ? (/^image\//i.test(file.type) || /\.(png|jpe?g|webp|gif|bmp|tiff?|avif|ico)$/i.test(file.name)) : /\.(png|jpe?g|webp)$/i.test(file.name);
+    const valid = file => json ? /\.json$/i.test(file.name) : anyImage ? (/^image\//i.test(file.type) || /\.(png|jpe?g|webp|gif|bmp|tiff?|avif|ico)$/i.test(file.name)) : /\.(png|jpe?g|webp)$/i.test(file.name);
     if (files.some(file => !valid(file))) { message(json ? '请上传 JSON 工作流文件。' : '文件格式不支持，请上传此入口支持的图片。', json ? 'Please upload a JSON workflow.' : 'Please upload images supported by this entry.'); return; }
     if (files.some(file => file.size > 100 * 1024 * 1024)) { message('单个文件不能超过 100 MB。', 'Each file must be at most 100 MB.'); return; }
     busy.add(root);

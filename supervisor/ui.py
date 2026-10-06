@@ -443,7 +443,7 @@ def build_ui(service: Supervisor):
                     with gr.Row(elem_id='caption-panel'):
                         with gr.Column(scale=0,min_width=200,elem_id='caption-uploader'):
                             caption_available = gr.Checkbox(value=bool(configured_branch(service)),visible=False)
-                            caption_input = gr.File(label='图片反推',type='filepath',file_types=['.png','.webp','.jpg','.jpeg'],height=96,
+                            caption_input = gr.File(label='图片反推',type='filepath',file_types=['image'],height=96,
                                 interactive=bool(configured_branch(service)),elem_id='caption-input',
                                 elem_classes=['supervisor-upload','supervisor-image-upload'] + ([] if configured_branch(service) else ['caption-disabled']))
                             caption_workflow_input = gr.File(label='上传图片识别工作流',file_types=['.png','.webp','.jpg','.jpeg'],type='filepath',height=96,visible=False,elem_id='caption-workflow-input',elem_classes=['supervisor-upload','supervisor-image-upload'])
@@ -1076,7 +1076,8 @@ def build_ui(service: Supervisor):
             return changes
 
         language_outputs = [c for c, _ in registry] + [title, appearance, appearance_panel, accent, mist, drizzle, reset_appearance]
-        init = app.load(fn=None, outputs=[language, appearance, accent, mist, drizzle,glass_blur,glass_opacity,appearance_preset], js=APPEARANCE_JS).then(fn=lambda:None,js=STUDIO_VIEW_JS).then(fn=lambda:None,js=NODE_EDITOR_JS).then(fn=None,js=UPLOAD_JS)
+        app.load(fn=None,js=UPLOAD_JS,queue=False)
+        init = app.load(fn=None, outputs=[language, appearance, accent, mist, drizzle,glass_blur,glass_opacity,appearance_preset], js=APPEARANCE_JS).then(fn=lambda:None,js=STUDIO_VIEW_JS).then(fn=lambda:None,js=NODE_EDITOR_JS)
         init.then(switch_preferences, [language, message, task], language_outputs,show_progress="hidden").then(refresh_all, refresh_inputs, outputs,js=refresh_selection_js,show_progress="hidden")
         language.change(switch_preferences, [language, message, task], language_outputs, show_progress="hidden",js="(lang, activity, taskId) => { window.supervisorLanguage = lang; try { localStorage.setItem('supervisor.language', lang); } catch {} return [lang, activity, taskId]; }").then(refresh_all, refresh_inputs, outputs,js=refresh_selection_js,show_progress="hidden")
         appearance_inputs = [appearance,accent,mist,drizzle,glass_blur,glass_opacity]

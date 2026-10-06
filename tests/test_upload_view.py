@@ -17,12 +17,13 @@ def test_upload_controls_share_drop_behavior_and_keep_latest_event(service):
     assert all('supervisor-upload' in c.elem_classes for c in controls.values())
     assert all('supervisor-image-upload' in c.elem_classes for key, c in controls.items() if key != 'workflow-api-upload')
     assert controls['caption-input'].interactive is False
-    assert controls['caption-input'].file_types == ['.png', '.webp', '.jpg', '.jpeg']
+    assert controls['caption-input'].file_types == ['image']
     events = app.config['dependencies']
     for name in ('caption-input', 'prompt-image-input', 'workflow-image-upload', 'caption-workflow-input'):
         upload = next(event for event in events if (controls[name]._id, 'upload') in event['targets'])
         assert upload['trigger_mode'] == 'always_last'
     assert any(event.get('js') == UPLOAD_JS for event in events)
+    assert next(event for event in events if event.get('js') == UPLOAD_JS)['queue'] is False
 
 
 def test_file_drop_adapter_reaches_native_input_without_duplicate_uploads():
@@ -92,6 +93,7 @@ const init=eval('('+UPLOAD_SOURCE+')');init();init();
   assert.equal(multi.changes,1);assert.equal(multi.input.files.length,2);
   const off=root('caption-input',{disabled:true});listeners.drop(event(off,[image('a.png')]));assert.equal(off.changes,0);
   assert.match(notices['supervisor-upload-feedback'].textContent,/尚未启用/);
+  const caption=root('caption-input');listeners.drop(event(caption,[{name:'photo.bmp',type:'image/bmp',size:10}]));assert.equal(caption.changes,1);
   e=event({closest:()=>null},[image('a.png')]);listeners.drop(e);assert.equal(e.prevented,1);assert.match(notices['supervisor-upload-feedback'].textContent,/上传框内/);
   e=event(blank,[],['text/plain']);listeners.drop(e);assert.equal(e.prevented,0);assert.equal(e.stopped,0);
   const json=root('workflow-api-upload');listeners.drop(event(json,[image('wrong.png')]));assert.equal(json.changes,0);
