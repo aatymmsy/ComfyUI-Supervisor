@@ -61,6 +61,22 @@ async def test_switch_is_recorded_without_requests_and_only_changes_submitted_gr
     assert restored.switch_nodes['126'].value is False
 
 
+async def test_ui_switch_feedback_names_branch_and_bypass_feedback_remains_distinct(service,monkeypatch):
+    import gradio as gr
+    from conftest import ui_callbacks
+    from supervisor.ui import build_ui
+    configure_switch(service)
+    await read_workflow_editor(service)
+    notices=[]
+    monkeypatch.setattr(gr,'Info',lambda text,**kwargs:notices.append(text))
+    callback=ui_callbacks(build_ui(service))['toggle_editor_bypass']
+    switched=await callback(json.dumps({'kind':'switch','node_id':'126','value':False}))
+    assert '分支切换为 False' in switched[3] and '绕过' not in notices[-1]
+    bypassed=await callback(json.dumps({'kind':'bypass','node_id':'10','enabled':True}))
+    assert '已记录绕过' in bypassed[3] and '绕过' in notices[-1]
+    assert service.workflow.switch_nodes['126'].value is False
+
+
 async def test_switch_and_bypass_choices_survive_each_other_and_previous_config(service):
     configure_switch(service)
     await read_workflow_editor(service)

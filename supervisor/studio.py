@@ -80,7 +80,7 @@ def _task_progress(service, task_id):
     task = service.db.one("SELECT state,phase,reason FROM tasks WHERE id=?", (task_id,)) if task_id else None
     if not task:
         return "等待开始"
-    labels = {"QUEUED":"等待前面的任务完成", "CAPTION":"ComfyUI 图片反推", "ANALYZE": "云端打标与参考图分析", "SUBMIT": "向 ComfyUI 提交工作流", "GENERATE": "ComfyUI 生图中",
+    labels = {"QUEUED":"等待前面的任务完成", "CAPTION":"ComfyUI 图片反推", "IMAGE_PROMPT":"视觉模型图片反推", "ANALYZE": "云端打标与参考图分析", "SUBMIT": "向 ComfyUI 提交工作流", "GENERATE": "ComfyUI 生图中",
               "EVALUATE": "云端质量评审", "DELIVER": "保存图组", "THEMES": "模型随机补选主题", "PROMPT": "生成或迭代提示词"}
     total = service.db.one("SELECT COUNT(*) n FROM assets WHERE task_id=? AND source_kind='reference'", (task_id,))["n"]
     tagged = sum(bool(json.loads(row["metadata"]).get("model_tags")) for row in service.db.rows("SELECT metadata FROM assets WHERE task_id=? AND source_kind='reference'", (task_id,)))

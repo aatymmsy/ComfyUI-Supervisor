@@ -111,7 +111,8 @@ class Cloud:
 
     def candidates(self, purpose, label, images, currency):
         result = []
-        refs = self.config.routes.get(purpose, self.config.routes.get('prompt_generation', []) if purpose == 'discussion' else [])
+        fallback = 'prompt_generation' if purpose == 'discussion' else 'tagging' if purpose == 'image_prompt' else None
+        refs = self.config.routes.get(purpose, self.config.routes.get(fallback, []))
         for ref in refs:
             if "/" not in ref:
                 continue
@@ -195,6 +196,7 @@ class Cloud:
         invalid_reply_code = {
             "tagging": "INVALID_RESPONSE_TAGGING_REQUIRED",
             "prompt_generation": "INVALID_RESPONSE_PROMPT_REQUIRED",
+            "image_prompt": "INVALID_RESPONSE_PROMPT_REQUIRED",
             "discussion": "INVALID_RESPONSE_DISCUSSION_REQUIRED",
         }.get(purpose, "INVALID_RESPONSE_REVIEW_REQUIRED")
         for provider, model, credential in candidates:
@@ -249,7 +251,7 @@ class Cloud:
                              'Keep JSON keys, enum values and generation prompt tags unchanged. '
                              'Explain visible defects in plain language; avoid schema field names in the explanation.')
                     if economical:
-                        role += ' Do not add translation copies, language labels, summaries or suggestions fields; write the requested language directly in evidence and top-level advice. Never put advice inside problems. Do not add overall: local software calculates totals. Every checks flag must be the JSON boolean true or false, or JSON null; never a quoted string, numeric value or descriptive label. Include checks.evidence, using an empty string when no defect is reported. Return only the fields specified by output.'
+                        role += ' Do not add translation copies, language labels, summaries or suggestions fields; write the requested language directly in evidence and top-level advice. Never put advice inside problems. Do not add overall: local software calculates totals. Every checks flag must be the JSON boolean true or false, or JSON null; never a quoted string, numeric value or descriptive label. Put evidence INSIDE the checks object, e.g. "checks":{"extra_limbs":false,"evidence":""}; never output a literal dotted key named "checks.evidence". Each problems item must have its own nonempty visible-defect evidence, even when checks already explains it. Return only the fields specified by output.'
                 messages = [{"role": "system", "content": role}, {"role": "user", "content": content}]
                 body = {"model": model.id, "messages": messages, "max_tokens": output_limit}
                 if strict:

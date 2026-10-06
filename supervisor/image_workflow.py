@@ -13,11 +13,14 @@ def _text(value):
     if isinstance(value, bytes):
         if value.startswith(b'ASCII\x00\x00\x00'):
             value=value[8:]
-        value=value.decode('utf-8',errors='replace')
+        elif value.startswith(b'UNICODE\x00'):
+            value=value[8:].decode('utf-16', errors='replace').rstrip('\x00')
+        if isinstance(value, bytes):
+            value=value.decode('utf-8',errors='replace').rstrip('\x00')
     return value if isinstance(value,str) and len(value)<=2_000_000 else None
 
 
-def image_workflow(image):
+def image_metadata(image):
     if not image:
         raise ImageWorkflowError('请先上传包含 ComfyUI 工作流元数据的原始图片。')
     path=Path(image)
@@ -27,7 +30,7 @@ def image_workflow(image):
         with Image.open(path) as source:
             if source.format not in ('PNG','WEBP','JPEG'):
                 raise ImageWorkflowError('请上传 PNG、WebP 或 JPEG 原图。')
-            values={key:_text(source.info.get(key)) for key in ('prompt','workflow')}
+            values={key:_text(source.info.get(key)) for key in ('prompt','workflow','parameters','positive','negative','positive_prompt','negative_prompt')}
             exif=source.getexif() if source.format!='PNG' or 'exif' in source.info else {}
             entries=list(exif.values())
             if 0x8769 in exif:
@@ -38,10 +41,17 @@ def image_workflow(image):
                     for key in values:
                         if text.startswith(key+':'):
                             values[key]=values[key] or text[len(key)+1:].strip()
+                    if 'Steps:' in text:
+                        values['parameters']=values['parameters'] or text
         with Image.open(path) as source:
             source.verify()
     except (UnidentifiedImageError,OSError,SyntaxError):
         raise ImageWorkflowError('无法读取图片，请上传未损坏的原始图片。') from None
+    return values
+
+
+def image_workflow(image):
+    values={key:value for key,value in image_metadata(image).items() if key in ('prompt','workflow')}
     layout=False
     for key in ('prompt','workflow'):
         if not values[key]:

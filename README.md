@@ -62,6 +62,8 @@ Windows 可直接双击项目根目录的 **start.bat**。第一次会准备环�
 
 支持保留 ComfyUI 元数据的 PNG、WebP、JPEG；推荐使用原始 PNG。截图、转存或压缩后的图片可能没有元数据。仅含编辑器布局、缺少执行图的图片无法自动导入；失败会显示原因，保留已有配置。未勾选时使用现有工作流的独立反推分支。
 
+提示词页另有并排的小号「输入图片识别」入口：优先从原文件的 ComfyUI 执行图、文本提示词或常见 parameters 元数据读取正负提示词，直接回填，不更换工作流、不调用模型。没有可读取的提示词时，使用已配置的视觉模型（沿用视觉打标路由）反推并回填，结果标明为推测描述，不保证恢复原始提示词。模型反推使用提示词页确认的内容范围和独立限额，默认预算上限 0.10 USD、5000 token，在顺序队列执行；失败保留已有提示词。
+
 ![提示词页读取原图](docs/screenshots/prompt-image-workflow-option.png)
 
 自动绑定支持单 KSampler、CLIPTextEncode、EmptyLatentImage / EmptySD3LatentImage 与 SaveImage，并支持已识别的字符串连接与潜空间布尔分支。多 sampler、复杂条件和其他自定义节点需要在高级配置指定绑定，程序会提示无法识别的部分。
@@ -100,7 +102,7 @@ API Key 默认仅在服务内存中持有，重启后需重新输入；可选择
 
 测试使用隔离数据库、模拟云端和 ComfyUI，不消耗真实生图或付费 API。schemas/ 来自 Pydantic 契约，CI 会检查是否漂移。Windows 启动脚本也支持 -Test。
 
-截至 **2026-10-05**，本机 Python 3.13 完整回归 **593 项通过**，覆盖规划、控制词传递、自动复核、预算限制、原图恢复、文件保护、交付与界面行为。这是流程与边界验证，不能作为真实评分准确率或成图质量的证明；Windows Python 3.11 / 3.13 的远端检查见 [GitHub Actions](https://github.com/aatymmsy/ComfyUI-Supervisor/actions/workflows/checks.yml)。
+截至 **2026-10-06**，本机 Python 3.13 完整回归 **620 项通过**，覆盖规划、控制词传递、自动复核、评审 JSON 兼容、图片元数据/模型反推、预算限制、原图恢复、文件保护、交付与界面行为。这是流程与边界验证，不能作为真实评分准确率或成图质量的证明；Windows Python 3.11 / 3.13 的远端检查见 [GitHub Actions](https://github.com/aatymmsy/ComfyUI-Supervisor/actions/workflows/checks.yml)。
 
     python -m supervisor demo
 

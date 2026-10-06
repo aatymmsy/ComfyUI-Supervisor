@@ -327,6 +327,7 @@ NODE_EDITOR_JS = r"""() => {
      const isSwitch = !!choice.dataset.switchNode;
      if(!input || !trigger) { if(isSwitch) choice.value=choice.dataset.switchValue; else choice.checked=!choice.checked; return; }
      const body=isSwitch?{kind:'switch',node_id:choice.dataset.switchNode,value:choice.value==='true'}:{kind:'bypass',node_id:choice.dataset.bypassNode,enabled:choice.checked};
+     trigger.dataset.actionLabel=isSwitch?`节点 ${body.node_id} 分支切换为 ${body.value?'True':'False'}`:`节点 ${body.node_id} ${body.enabled?'绕过':'恢复'}`;
      window.supervisorBypassBusy=true;
      const label=!isSwitch && choice.closest("label")?.querySelector("span");
      if(label) label.textContent=choice.checked?"已选绕过":"绕过";

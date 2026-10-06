@@ -479,6 +479,18 @@ class Supervisor:
         beat = asyncio.create_task(self._heartbeat(task_id, owner))
         try:
             settings = self.settings(task_id)
+            if self.db.one('SELECT task_id FROM image_prompt_jobs WHERE task_id=?', (task_id,)):
+                from .image_prompt import run_image_prompt
+                try:
+                    await run_image_prompt(self, task_id, settings)
+                except BudgetExceeded:
+                    self.db.transition(task_id, 'PAUSED', 'IMAGE_PROMPT', 'BUDGET_EXHAUSTED')
+                except CloudError as exc:
+                    if str(exc) == 'TOKEN_BUDGET_LIMIT':
+                        self.db.transition(task_id, 'PAUSED', 'IMAGE_PROMPT', 'TOKEN_BUDGET_LIMIT')
+                    else:
+                        raise
+                return
             inflight = self.db.one("SELECT state FROM generations WHERE task_id=? AND state NOT IN ('DECIDED','FAILED','PREPARED') LIMIT 1", (task_id,))
             if not inflight:
                 self.check_round(task_id)

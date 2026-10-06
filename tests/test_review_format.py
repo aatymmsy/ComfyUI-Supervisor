@@ -20,6 +20,54 @@ def review():
         'decision':'keep','confidence':.95,'problems':[],'advice':''}
 
 
+async def test_observed_dotted_check_evidence_and_empty_single_problem_need_no_retry(service):
+    from test_visual_checks import checks
+    data=review()
+    data['checks']=checks().model_dump()
+    data['checks'].update(disconnected_parts=True,evidence='')
+    data['checks.evidence']='Left shoulder visibly ends without connection to the raised upper arm.'
+    data['problems']=[dict(category='anatomy_error',severity='major',evidence='')]
+    calls=[]
+    def handler(request):
+        calls.append(json.loads(request.content))
+        return httpx.Response(200,json={'choices':[{'finish_reason':'stop','message':{'content':json.dumps(data)}}],
+            'usage':{'prompt_tokens':10,'completion_tokens':20}})
+    configure_cloud(service,httpx.MockTransport(handler))
+    settings=TaskSettings(goal='portrait',demo=False,reference_only=True,autonomous=True,direct_prompt='portrait',content_label='sfw')
+    task=service.create_task(settings,start=False)
+    result,_=await service.cloud.request(task,settings,'review',Evaluation,{'asset_id':'a'})
+    assert len(calls)==1 and result.issues[0].evidence==data['checks.evidence']
+    assert result.visual_checks.disconnected_parts is True and result.anatomy==90
+    assert service.evaluate_decision(result,settings)==('QUARANTINE','BASIC_STRUCTURE_FAILED')
+    assert 'never output a literal dotted key' in calls[0]['messages'][0]['content']
+
+
+@pytest.mark.parametrize('fault',['conflict','nontext','oversized','unrelated','multiple','no_defect','empty','unknown_dotted'])
+def test_dotted_evidence_does_not_hide_conflicts_or_invent_observations(fault):
+    from test_visual_checks import checks
+    data=review();data['checks']=checks().model_dump()
+    data['checks'].update(disconnected_parts=True,evidence='')
+    data['checks.evidence']='Left shoulder is disconnected.'
+    data['problems']=[dict(category='anatomy_error',severity='major',evidence='')]
+    if fault=='conflict':data['checks']['evidence']='Different finding.'
+    elif fault=='nontext':data['checks.evidence']=90
+    elif fault=='oversized':data['checks.evidence']='a'*501
+    elif fault=='unrelated':data['problems'][0]['category']='style_drift'
+    elif fault=='multiple':data['problems'].append(dict(category='artifacts',severity='minor',evidence='Visible noise.'))
+    elif fault=='no_defect':data['checks']['disconnected_parts']=False
+    elif fault=='empty':data['checks.evidence']=''
+    elif fault=='unknown_dotted':data['checks.anatomy']=100
+    with pytest.raises(ValidationError):ReviewReply.model_validate(data)
+
+
+def test_observed_evidence2_is_bounded_explanation_not_score():
+    data=review()
+    data['problems']=[dict(category='artifacts',severity='minor',evidence='Visible noise.',evidence2='Upper left background.')]
+    assert 'Upper left' in ReviewReply.model_validate(data).problems[0].evidence
+    data['problems'][0]['evidence2']=100
+    with pytest.raises(ValidationError):ReviewReply.model_validate(data)
+
+
 def test_flat_scores_equal_nested_scores_without_fabrication():
     nested = review()
     flat = {**nested.pop('scores'), **nested}

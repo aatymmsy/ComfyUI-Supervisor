@@ -31,6 +31,8 @@ CREATE TABLE IF NOT EXISTS runtime_state(name TEXT PRIMARY KEY, value TEXT NOT N
 CREATE TABLE IF NOT EXISTS generation_metadata(generation_id TEXT PRIMARY KEY, workflow_json TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS caption_jobs(task_id TEXT PRIMARY KEY, asset_id TEXT NOT NULL, node_id TEXT NOT NULL,
  graph TEXT NOT NULL, state TEXT NOT NULL DEFAULT 'PREPARED', prompt_id TEXT, result TEXT);
+CREATE TABLE IF NOT EXISTS image_prompt_jobs(task_id TEXT PRIMARY KEY REFERENCES tasks(id),
+ asset_id TEXT NOT NULL REFERENCES assets(id), result TEXT);
 CREATE TABLE IF NOT EXISTS task_configs(task_id TEXT PRIMARY KEY, workflow_json TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS task_runtime(task_id TEXT PRIMARY KEY, elapsed REAL NOT NULL DEFAULT 0, running_since REAL);
 CREATE TABLE IF NOT EXISTS user_deletions(asset_id TEXT PRIMARY KEY, task_id TEXT NOT NULL, files TEXT NOT NULL, state TEXT NOT NULL DEFAULT 'pending', created_at TEXT NOT NULL);

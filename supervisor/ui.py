@@ -30,6 +30,7 @@ from .frosted_view import FROSTED_CSS
 from .node_editor_view import node_table, parameter_tabs, parameter_form, lora_form, NODE_EDITOR_CSS, NODE_EDITOR_JS, SCROLL_EDITOR_JS, CHARACTER_ROWS_JS, CHARACTER_ROWS_CSS
 from .caption import configured_branch
 from .image_workflow import image_workflow, ImageWorkflowError
+from .image_prompt import embedded_prompts, enqueue_image_prompt
 from .setup import save_workflow_graph, infer_workflow, resolve_workflow_text
 from .result_delete import RESULT_DELETE_CSS, RESULT_DELETE_JS
 from .result_batch import batch_from_result
@@ -63,7 +64,16 @@ CSS = """
 .api-invalid label, .api-invalid .label { color: #dc2626 !important; }
 .api-invalid input, .api-invalid textarea { border-color: #dc2626 !important; }
 .caption-disabled { opacity: .42 !important; filter: grayscale(1); pointer-events: none !important; }
-#workflow-image-uploader, #caption-uploader {max-width:300px !important;}
+#workflow-image-uploader {max-width:300px !important;}
+#caption-panel {gap:12px !important; justify-content:flex-start;}
+#caption-uploader, #prompt-image-uploader {flex:0 0 220px !important; width:220px !important; min-width:0 !important; max-width:220px !important;}
+#caption-input, #caption-workflow-input, #prompt-image-input {height:112px !important; min-height:112px !important; max-height:112px !important; box-sizing:border-box !important;}
+#caption-panel .file-preview {width:100% !important; padding:0 !important;}
+#caption-panel .file-preview tr {display:flex !important; width:100% !important;}
+#caption-panel .file-preview td.filename {flex:1 !important; min-width:0 !important; width:auto !important; padding:4px !important;}
+#caption-panel .file-preview td.download {flex:0 0 72px !important; min-width:0 !important; width:72px !important; padding:4px !important; font-size:11px !important;}
+#caption-panel .image-prompt-note, #caption-panel .image-prompt-note p {font-size:12px !important; line-height:1.5 !important; margin:0 !important; color:var(--body-text-color-subdued);}
+#caption-panel .upload-container p, #caption-panel .wrap p {font-size:13px !important;}
 #workflow-image-status {font-size:12px;}
 button, .block { border-radius: 6px !important; }
 textarea { font-family: inherit !important; font-size: 14px !important; }
@@ -430,14 +440,21 @@ def build_ui(service: Supervisor):
                 with gr.Tab("Prompt studio", id="prompt-studio",render_children=True):
                     gr.Markdown("填写提示词后，按当前工作流生成图片。模型和关键节点参数可在「工作流参数」栏目修改。")
                     with gr.Row(elem_id='caption-panel'):
-                        with gr.Column(scale=0,min_width=260,elem_id='caption-uploader'):
+                        with gr.Column(scale=0,min_width=200,elem_id='caption-uploader'):
                             caption_available = gr.Checkbox(value=bool(configured_branch(service)),visible=False)
-                            caption_input = gr.Image(label='图片反推',type='filepath',sources=['upload'],height=112,
+                            caption_input = gr.Image(label='图片反推',type='filepath',sources=['upload'],height=96,
                                 interactive=bool(configured_branch(service)),buttons=[],elem_id='caption-input',
                                 elem_classes=[] if configured_branch(service) else ['caption-disabled'])
-                            caption_workflow_input = gr.File(label='上传图片识别工作流',file_types=['.png','.webp','.jpg','.jpeg'],type='filepath',height=112,visible=False,elem_id='caption-workflow-input')
+                            caption_workflow_input = gr.File(label='上传图片识别工作流',file_types=['.png','.webp','.jpg','.jpeg'],type='filepath',height=96,visible=False,elem_id='caption-workflow-input')
                             caption_workflow_mode = gr.Checkbox(label='传图识别工作流',value=False,elem_id='caption-workflow-mode')
-                        caption_status = gr.Markdown('放入图片后仅运行反推分支，成功后填入正向提示词。' if configured_branch(service) else '当前工作流没有可独立执行的反推节点，图片输入已禁用。',elem_id='caption-status')
+                            caption_status = gr.Markdown('仅运行工作流反推分支，填入正向提示词。' if configured_branch(service) else '当前工作流没有反推分支；可用右侧图片识别。',elem_id='caption-status',elem_classes=['image-prompt-note'])
+                        with gr.Column(scale=0,min_width=200,elem_id='prompt-image-uploader'):
+                            # File preserves original metadata; Image preprocessing can strip it.
+                            prompt_image_input = gr.File(label='输入图片识别',file_types=['.png','.webp','.jpg','.jpeg'],type='filepath',height=96,elem_id='prompt-image-input')
+                            prompt_image_status = gr.Markdown('优先读取元数据提示词；没有则用视觉模型反推，填入正负提示词。',elem_id='prompt-image-status',elem_classes=['image-prompt-note'])
+                            with gr.Accordion('模型反推限额',open=False):
+                                image_prompt_budget = gr.Number(value=.1,minimum=0,label='预算上限（USD）')
+                                image_prompt_tokens = gr.Number(value=5000,minimum=1000,maximum=2000000,precision=0,label='Token 上限')
                     with gr.Row():
                         with gr.Column(scale=2, min_width=360):
                             direct_positive = gr.Textbox(label="Positive prompt *", lines=5, elem_id="direct-positive")
@@ -1428,7 +1445,7 @@ def build_ui(service: Supervisor):
 
         def refresh_caption_input(mode=False,announce=False):
             enabled=bool(configured_branch(service))
-            text=('上传保留 ComfyUI 元数据的原图，自动导入工作流并填入正负提示词及生成参数。' if mode else ('放入图片后仅运行反推分支，成功后填入正向提示词。' if enabled else '当前工作流没有可独立执行的反推节点；可勾选「传图识别工作流」使用图片元数据。'))
+            text=('原图元数据导入工作流、正负提示词及参数。' if mode else ('仅运行工作流反推分支，填入正向提示词。' if enabled else '当前工作流没有反推分支；可用右侧图片识别。'))
             return gr.update(interactive=enabled,visible=not mode,value=None),gr.update(visible=mode),enabled,(text if announce or not mode else gr.update())
 
         caption_mode_outputs=[caption_input,caption_workflow_input,caption_available,caption_status]
@@ -1465,7 +1482,35 @@ def build_ui(service: Supervisor):
             except (ValueError,OSError) as exc:
                 gr.Warning(str(exc),duration=10)
                 yield gr.update(),'反推失败：'+str(exc)
-        caption_input.upload(caption_uploaded,caption_input,[direct_positive,caption_status],concurrency_id='caption-input',concurrency_limit=1,show_progress='hidden')
+        caption_input.upload(caption_uploaded,caption_input,[direct_positive,caption_status],concurrency_id='prompt-image-input',concurrency_limit=1,show_progress='hidden')
+
+        async def prompt_image_uploaded(image,scope,usd,token_limit):
+            if not image:
+                yield gr.update(),gr.update(),'请上传原始图片。'
+                return
+            try:
+                pair=embedded_prompts(image)
+                if pair:
+                    yield pair[0],pair[1],'已读取原图元数据提示词，未调用模型；当前工作流保留。'
+                    return
+                task_id=enqueue_image_prompt(service,image,scope,usd,token_limit)
+                yield gr.update(),gr.update(),'没有可读取的提示词，模型反推已加入顺序队列。'
+                while True:
+                    row=service.db.one('SELECT state,reason FROM tasks WHERE id=?',(task_id,))
+                    job=service.db.one('SELECT result FROM image_prompt_jobs WHERE task_id=?',(task_id,))
+                    if row['state']=='COMPLETED' and job['result']:
+                        result=json.loads(job['result'])
+                        yield result['positive'],result['negative'],'已填入模型反推提示词（推测描述，并非原始提示词）。'
+                        return
+                    if row['state'] in ('PAUSED','FAILED','CANCELLED','PARTIAL','BLOCKED_POLICY','WAITING_APPROVAL'):
+                        yield gr.update(),gr.update(),'模型反推未完成：'+task_progress(service,task_id)+'；原提示词已保留。'
+                        return
+                    await asyncio.sleep(.25)
+            except Exception as exc:
+                result=str(exc) if isinstance(exc,(ValueError,OSError)) else form_error(exc,'zh')
+                yield gr.update(),gr.update(),'图片识别失败：'+result+'；原提示词已保留。'
+        prompt_image_input.upload(prompt_image_uploaded,[prompt_image_input,direct_scope,image_prompt_budget,image_prompt_tokens],
+            [direct_positive,direct_negative,prompt_image_status],concurrency_id='prompt-image-input',concurrency_limit=1,show_progress='hidden')
 
         async def studio_create(files, directory, input_folder, count, direction, styles, examples, group_count, run_mode,
                           output, w, h, n_steps, guidance, base_seed, scope, quality, usd, n_rounds, hours, lang, sampler, scheduler, reference_seed=None,token_limit=50000,per_group_target=1,control_rows=None,*control_values,on_progress=None,delivery_format='files'):
@@ -1662,11 +1707,12 @@ def build_ui(service: Supervisor):
                 body=json.loads(request)
                 if body.get('kind')=='switch':
                     rows=await set_workflow_switch(service,body['node_id'],body['value'])
-                    result=f"节点 {body['node_id']}：已记录 {str(body['value'])}，开始新任务时生效。"
+                    result=f"节点 {body['node_id']}：已记录分支切换为 {str(body['value'])}，开始新任务时生效。"
                 else:
                     rows=await set_workflow_bypass(service,body['node_id'],body['enabled'])
                     result=f"节点 {body['node_id']}："+('已记录绕过，下次提交生图时生效。' if body['enabled'] else '已记录恢复，下次提交生图时启用。')
                 recorded=True
+                gr.Info(result,duration=6)
             except Exception as exc:
                 result=str(exc) if isinstance(exc,ConnectionFailure) else '记录失败，请重新读取工作流。'
                 gr.Warning(result,duration=8)

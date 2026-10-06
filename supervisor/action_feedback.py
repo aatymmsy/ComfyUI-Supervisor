@@ -25,7 +25,7 @@ ACTION_JS=r'''() => {
    const button=event.target.closest?.('.action-feedback-button');
    if(!button || button.disabled || button.querySelector('button:disabled')) return;
    if(button.dataset.actionWorking==='true'){event.preventDefault();event.stopImmediatePropagation();return;}
-   labels.set(button.id,button.textContent.trim());
+   labels.set(button.id,button.dataset.actionLabel || button.textContent.trim());
    button.dataset.actionWorking='true';button.setAttribute('aria-busy','true');
    show('正在执行：'+labels.get(button.id)+'…');
  },true);
