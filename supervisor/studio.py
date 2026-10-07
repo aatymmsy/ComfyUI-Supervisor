@@ -141,6 +141,10 @@ def _task_progress(service, task_id):
                     empty = [".".join(map(str,error['loc'])) for error in details.get('errors',[]) if error.get('type') == 'string_too_short' and error.get('loc')]
                     if empty:
                         reason += '（必需说明为空：' + '、'.join(empty[:3]) + '）'
+                    invalid_scores = ['.'.join(map(str,error['loc'])) for error in details.get('errors',[])
+                        if error.get('type') in ('float_parsing','float_type','finite_number','greater_than_equal','less_than_equal','review_score_type') and error.get('loc')]
+                    if invalid_scores:
+                        reason += '（评分须为 0–100 数字或 null：' + '、'.join(invalid_scores[:3]) + '）'
                     if any(error.get('type') == 'json_invalid' for error in details.get('errors',[])):
                         reason += '（回复不是完整、可解析的 JSON）'
                     oversized = [".".join(map(str,error["loc"])) for error in details.get("errors",[]) if error.get("type") in ("too_long","string_too_long") and error.get("loc")]

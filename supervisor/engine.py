@@ -29,6 +29,10 @@ class RoundEnded(Exception):
     pass
 
 
+class ImageReviewUnavailable(Exception):
+    """This image was deleted or could not obtain a validated automatic review."""
+
+
 class Supervisor:
     def __init__(self, project_root: Path, data_root: Path | None = None, provider_config=None, workflow_config=None, background=False):
         self.project_root = project_root.resolve()
@@ -224,6 +228,7 @@ class Supervisor:
                 self.comfy = original_comfy
                 self.active.discard(task_id)
                 self.executing_task = None
+                self.files.finish_user_deletions(task_id)
             self._dispatch_next()
 
     def check_round(self, task_id=None):
@@ -619,6 +624,7 @@ class Supervisor:
             except asyncio.CancelledError:
                 pass
             self.db.release(task_id, owner)
+            self.files.finish_user_deletions(task_id)
 
     def reference_tag_context(self, settings):
         context = {"scope":settings.content_label,
@@ -897,87 +903,94 @@ class Supervisor:
         assets = self.db.rows("SELECT * FROM assets WHERE generation_id=?", (generation["id"],))
         best = 0
         for asset in assets:
-            if self.group_cancelled(group['id']):
-                break
-            decision = self.db.one("SELECT * FROM decisions WHERE asset_id=? ORDER BY rowid DESC LIMIT 1", (asset["id"],))
-            if not settings.review_enabled:
-                if not decision:
-                    self.decision(asset["id"],None,"ACCEPTED","USER_DISABLED_REVIEW","user")
-                self.save_group_output(task_id,group,asset)
+            if self.image_deleted(asset['id']):
                 continue
-            if decision:
-                if decision['action'] == 'QUARANTINE' and asset['protected']:
-                    protected_action='REJECTED' if settings.autonomous else 'REVIEW'
-                    self.decision(asset['id'],decision['evaluation_id'],protected_action,'PROTECTED_ASSET')
-                    decision={**decision,'action':protected_action,'reason':'PROTECTED_ASSET'}
-                if decision["action"] == "ACCEPTED" and settings.autonomous:
-                    self.save_group_output(task_id, group, asset)
-                if decision["action"] == "QUARANTINE" and asset["state"] == "AVAILABLE":
-                    evaluation = self.db.one("SELECT body FROM evaluations WHERE id=?", (decision["evaluation_id"],))
-                    self.files.quarantine(asset, json.loads(evaluation["body"]) if evaluation else {}, decision["reason"], settings.retention_days, settings.delete_mode, settings.allow_permanent_delete and (settings.calibrated or settings.autonomous))
-                score = self.db.one("SELECT effective_score FROM evaluations WHERE id=?", (decision["evaluation_id"],))
-                best = max(best, (score or {}).get("effective_score") or 0)
-                continue
-            duplicate = self.db.one("SELECT id FROM assets WHERE task_id=? AND sha256=? AND id<>? AND source_kind='generated' AND rowid<(SELECT rowid FROM assets WHERE id=?) LIMIT 1", (task_id, asset["sha256"], asset["id"], asset["id"]))
-            if duplicate:
-                self.decision(asset["id"], None, ('REJECTED' if asset['protected'] else 'QUARANTINE') if settings.autonomous else 'REVIEW', 'EXACT_DUPLICATE')
-                if settings.autonomous and not asset['protected']:
-                    self.files.quarantine(asset, {}, "EXACT_DUPLICATE", settings.retention_days, settings.delete_mode, settings.allow_permanent_delete and (settings.calibrated or settings.autonomous))
-                continue
-            evaluation_row = self.db.one("SELECT * FROM evaluations WHERE asset_id=? AND stage='final' ORDER BY rowid DESC LIMIT 1", (asset["id"],))
-            if not evaluation_row:
-                payload = {"asset_id": asset["id"], "goal": settings.goal, "character":character_for_group(settings,group['ordinal']), "prompt": compact_prompt(plan.model_dump()), "round_index": variant["round_index"], "stage": "prescreen"}
-                payload["reference_characteristics"] = generation_reference_context(json.loads(self.db.one("SELECT body FROM style_cards WHERE task_id=? ORDER BY version DESC LIMIT 1", (task_id,))["body"]))
-                payload["target_style"] = settings.target_styles[group["ordinal"]] if settings.target_styles else None
-                payload["face_required"] = settings.autonomous and needs_face(plan.positive, controlled_goal(settings,group["ordinal"]), payload["target_style"] or "")
-                payload["review_rule"] = "Judge style_match against target_style when present, using only this group's theme and actual prompt as content targets; references teach writing methods, not mandatory visual features. A deliberate style change is not style drift. Review the actual generated image, score assessable criteria, and propose concrete prompt changes with visible evidence."
-                payload["review_rule"] += " Score structure, hands, text_quality and safety_score independently (0-100, higher is better); use null for absent or unassessable details. Safety must respect the user-confirmed content scope."
-                checks = await asyncio.to_thread(traditional_checks, self.files.path(asset["path"]), plan.positive) if not settings.demo else {}
-                payload["traditional_metrics"] = checks
-                payload["content_scope"] = settings.content_label
-                payload["acceptance_mode"] = "basic_structure" if settings.basic_pass else "quality"
-                if settings.prescreen and not self.db.one("SELECT id FROM evaluations WHERE asset_id=? AND stage='prescreen'", (asset["id"],)):
-                    pre, call = await self.cloud.request(task_id, settings, "review", Evaluation, payload, [self.files.path(asset["thumb_path"])])
+            try:
+                if self.group_cancelled(group['id']):
+                    break
+                decision = self.db.one("SELECT * FROM decisions WHERE asset_id=? ORDER BY rowid DESC LIMIT 1", (asset["id"],))
+                if not settings.review_enabled:
+                    if not decision:
+                        self.decision(asset["id"],None,"ACCEPTED","USER_DISABLED_REVIEW","user")
+                    self.save_group_output(task_id,group,asset)
+                    continue
+                if decision:
+                    if decision['action'] == 'QUARANTINE' and asset['protected']:
+                        protected_action='REJECTED' if settings.autonomous else 'REVIEW'
+                        self.decision(asset['id'],decision['evaluation_id'],protected_action,'PROTECTED_ASSET')
+                        decision={**decision,'action':protected_action,'reason':'PROTECTED_ASSET'}
+                    if decision["action"] == "ACCEPTED" and settings.autonomous:
+                        self.save_group_output(task_id, group, asset)
+                    if decision["action"] == "QUARANTINE" and asset["state"] == "AVAILABLE":
+                        evaluation = self.db.one("SELECT body FROM evaluations WHERE id=?", (decision["evaluation_id"],))
+                        self.quarantine_available(asset, json.loads(evaluation["body"]) if evaluation else {}, decision["reason"], settings.retention_days, settings.delete_mode, settings.allow_permanent_delete and (settings.calibrated or settings.autonomous))
+                    score = self.db.one("SELECT effective_score FROM evaluations WHERE id=?", (decision["evaluation_id"],))
+                    best = max(best, (score or {}).get("effective_score") or 0)
+                    continue
+                duplicate = self.db.one("SELECT id FROM assets WHERE task_id=? AND sha256=? AND id<>? AND source_kind='generated' AND state NOT IN ('DELETED','DELETING') AND rowid<(SELECT rowid FROM assets WHERE id=?) LIMIT 1", (task_id, asset["sha256"], asset["id"], asset["id"]))
+                if duplicate:
+                    self.decision(asset["id"], None, ('REJECTED' if asset['protected'] else 'QUARANTINE') if settings.autonomous else 'REVIEW', 'EXACT_DUPLICATE')
+                    if settings.autonomous and not asset['protected']:
+                        self.quarantine_available(asset, {}, "EXACT_DUPLICATE", settings.retention_days, settings.delete_mode, settings.allow_permanent_delete and (settings.calibrated or settings.autonomous))
+                    continue
+                evaluation_row = self.db.one("SELECT * FROM evaluations WHERE asset_id=? AND stage='final' ORDER BY rowid DESC LIMIT 1", (asset["id"],))
+                if not evaluation_row:
+                    payload = {"asset_id": asset["id"], "goal": settings.goal, "character":character_for_group(settings,group['ordinal']), "prompt": compact_prompt(plan.model_dump()), "round_index": variant["round_index"], "stage": "prescreen"}
+                    payload["reference_characteristics"] = generation_reference_context(json.loads(self.db.one("SELECT body FROM style_cards WHERE task_id=? ORDER BY version DESC LIMIT 1", (task_id,))["body"]))
+                    payload["target_style"] = settings.target_styles[group["ordinal"]] if settings.target_styles else None
+                    payload["face_required"] = settings.autonomous and needs_face(plan.positive, controlled_goal(settings,group["ordinal"]), payload["target_style"] or "")
+                    payload["review_rule"] = "Judge style_match against target_style when present, using only this group's theme and actual prompt as content targets; references teach writing methods, not mandatory visual features. A deliberate style change is not style drift. Review the actual generated image, score assessable criteria, and propose concrete prompt changes with visible evidence."
+                    payload["review_rule"] += " Score structure, hands, text_quality and safety_score independently (0-100, higher is better); use null for absent or unassessable details. Safety must respect the user-confirmed content scope."
+                    checks = await asyncio.to_thread(traditional_checks, self.files.path(asset["path"]), plan.positive) if not settings.demo else {}
+                    payload["traditional_metrics"] = checks
+                    payload["content_scope"] = settings.content_label
+                    payload["acceptance_mode"] = "basic_structure" if settings.basic_pass else "quality"
+                    if settings.prescreen and not self.db.one("SELECT id FROM evaluations WHERE asset_id=? AND stage='prescreen'", (asset["id"],)):
+                        pre, call = await self.request_image_review(task_id, settings, asset, payload, self.files.path(asset["thumb_path"]))
+                        if self.group_cancelled(group['id']):
+                            break
+                        if pre is not None:
+                            self.save_evaluation(asset, pre, call, "prescreen")
+                        # Thumbnail uncertainty needs the original-image final
+                        # review, not a terminal decision based on the thumbnail.
+                    payload["stage"] = "final"
+                    evaluation, call = await self.request_image_review(task_id, settings, asset, payload)
                     if self.group_cancelled(group['id']):
                         break
-                    self.save_evaluation(asset, pre, call, "prescreen")
-                    # Thumbnail uncertainty needs the original-image final
-                    # review, not a terminal decision based on the thumbnail.
-                payload["stage"] = "final"
-                evaluation, call = await self.cloud.request(task_id, settings, "review", Evaluation, payload, [self.files.path(asset["path"])])
-                if self.group_cancelled(group['id']):
-                    break
-                self.validate_face_review(evaluation, payload["face_required"])
-                evaluation.traditional = checks
-                if checks.get("texture", 0) > 5:
-                    for previous in self.db.accepted(task_id):
-                        old = json.loads(self.db.one("SELECT body FROM evaluations WHERE id=?", (previous["evaluation_id"],))["body"]).get("traditional", {})
-                        if old.get("texture", 0) > 5 and old.get("phash") and (int(old["phash"], 16) ^ int(checks["phash"], 16)).bit_count() <= 4:
-                            evaluation.traditional["duplicate"] = True
-                            break
-                evaluation_row = self.save_evaluation(asset, evaluation, call, "final")
-            evaluation = Evaluation.model_validate_json(evaluation_row["body"])
-            face_required = settings.autonomous and needs_face(plan.positive, controlled_goal(settings,group["ordinal"]), settings.target_styles[group["ordinal"]] if settings.target_styles else "")
-            if settings.autonomous and self.needs_structure_confirmation(evaluation,face_required,settings):
-                evaluation_row=await self.confirm_structure(task_id,settings,group,asset,plan,variant['round_index'],evaluation,face_required)
-                if self.group_cancelled(group['id']):
-                    break
-                evaluation=Evaluation.model_validate_json(evaluation_row['body'])
-            best = max(best, evaluation.effective_score() or 0)
-            action, reason = self.evaluate_decision(evaluation, settings, face_required)
-            if asset['protected'] and action=='QUARANTINE':
-                action,reason='REJECTED' if settings.autonomous else 'REVIEW','PROTECTED_ASSET'
-            self.decision(asset["id"], evaluation_row["id"], action, reason)
-            if action == "ACCEPTED" and settings.autonomous:
-                self.save_group_output(task_id, group, asset)
-            if action == "QUARANTINE":
-                self.files.quarantine(asset, evaluation.model_dump(), reason, settings.retention_days, settings.delete_mode, settings.allow_permanent_delete and (settings.calibrated or settings.autonomous))
+                    self.validate_face_review(evaluation, payload["face_required"])
+                    evaluation.traditional = checks
+                    if checks.get("texture", 0) > 5:
+                        for previous in self.db.accepted(task_id):
+                            old = json.loads(self.db.one("SELECT body FROM evaluations WHERE id=?", (previous["evaluation_id"],))["body"]).get("traditional", {})
+                            if old.get("texture", 0) > 5 and old.get("phash") and (int(old["phash"], 16) ^ int(checks["phash"], 16)).bit_count() <= 4:
+                                evaluation.traditional["duplicate"] = True
+                                break
+                    evaluation_row = self.save_evaluation(asset, evaluation, call, "final")
+                evaluation = Evaluation.model_validate_json(evaluation_row["body"])
+                face_required = settings.autonomous and needs_face(plan.positive, controlled_goal(settings,group["ordinal"]), settings.target_styles[group["ordinal"]] if settings.target_styles else "")
+                if settings.autonomous and self.needs_structure_confirmation(evaluation,face_required,settings):
+                    evaluation_row=await self.confirm_structure(task_id,settings,group,asset,plan,variant['round_index'],evaluation,face_required)
+                    if self.group_cancelled(group['id']):
+                        break
+                    evaluation=Evaluation.model_validate_json(evaluation_row['body'])
+                best = max(best, evaluation.effective_score() or 0)
+                action, reason = self.evaluate_decision(evaluation, settings, face_required)
+                if asset['protected'] and action=='QUARANTINE':
+                    action,reason='REJECTED' if settings.autonomous else 'REVIEW','PROTECTED_ASSET'
+                self.decision(asset["id"], evaluation_row["id"], action, reason)
+                if action == "ACCEPTED" and settings.autonomous:
+                    self.save_group_output(task_id, group, asset)
+                if action == "QUARANTINE":
+                    self.quarantine_available(asset, evaluation.model_dump(), reason, settings.retention_days, settings.delete_mode, settings.allow_permanent_delete and (settings.calibrated or settings.autonomous))
+            except ImageReviewUnavailable:
+                continue
         with self.db.transaction() as c:
             c.execute("UPDATE generations SET state='DECIDED',updated_at=? WHERE id=?", (now(), generation["id"]))
             improved = best > group["best_score"] + 1
             c.execute("UPDATE groups SET round_index=round_index+1,best_score=MAX(best_score,?),stale_rounds=? WHERE id=?", (best, 0 if improved else group["stale_rounds"] + 1, group["id"]))
         if (group["round_index"] + 1) % 3 == 0:
             self.summarize(task_id, group["id"], group["round_index"] + 1)
+        self.files.finish_user_deletions(task_id)
 
     @staticmethod
     def needs_structure_confirmation(evaluation, face_required=False, settings=None):
@@ -1025,23 +1038,25 @@ class Supervisor:
             'structure_confirmation':{'independent_original_review':True},
             'confirmation_reason':reason}
         self.db.event(task_id,'STRUCTURE_RECHECK_STARTED',{'asset_id':asset['id']})
-        result,call=await self.cloud.request(task_id,settings,'review',Evaluation,payload,[self.files.path(asset['path'])])
+        result,call=await self.request_image_review(task_id,settings,asset,payload)
         self.validate_face_review(result,face_required)
         result.traditional={**previous.traditional,'structure_confirmation':True}
         return self.save_evaluation(asset,result,call,'final')
 
     async def resolve_structure_hold(self, task_id, settings, asset_id):
+        if self.image_deleted(asset_id):
+            return
         asset=self.db.one('SELECT * FROM assets WHERE id=?',(asset_id,))
         group=self.db.one('SELECT * FROM groups WHERE id=?',(asset['group_id'],))
         generation=self.db.one('SELECT * FROM generations WHERE id=?',(asset['generation_id'],))
         variant=self.db.one('SELECT * FROM prompt_variants WHERE id=?',(generation['variant_id'],))
         plan=PromptPlan.model_validate_json(variant['body'])
         row=self.db.one("SELECT * FROM evaluations WHERE asset_id=? AND stage='final' ORDER BY rowid DESC LIMIT 1",(asset_id,))
-        duplicate=self.db.one("SELECT id FROM assets WHERE task_id=? AND sha256=? AND id<>? AND source_kind='generated' AND rowid<(SELECT rowid FROM assets WHERE id=?) LIMIT 1",(task_id,asset['sha256'],asset_id,asset_id))
+        duplicate=self.db.one("SELECT id FROM assets WHERE task_id=? AND sha256=? AND id<>? AND source_kind='generated' AND state NOT IN ('DELETED','DELETING') AND rowid<(SELECT rowid FROM assets WHERE id=?) LIMIT 1",(task_id,asset['sha256'],asset_id,asset_id))
         if duplicate:
             self.decision(asset_id,row['id'] if row else None,'REJECTED' if asset['protected'] else 'QUARANTINE','EXACT_DUPLICATE')
             if not asset['protected']:
-                self.files.quarantine(asset,json.loads(row['body']) if row else {},'EXACT_DUPLICATE',settings.retention_days,
+                self.quarantine_available(asset,json.loads(row['body']) if row else {},'EXACT_DUPLICATE',settings.retention_days,
                     settings.delete_mode,settings.allow_permanent_delete and (settings.calibrated or settings.autonomous))
             return
         evaluation=Evaluation.model_validate_json(row['body']) if row else Evaluation(
@@ -1058,6 +1073,8 @@ class Supervisor:
             if self.needs_structure_confirmation(evaluation,face_required,settings):
                 row=await self.confirm_structure(task_id,settings,group,asset,plan,variant['round_index'],evaluation,face_required)
                 evaluation=Evaluation.model_validate_json(row['body'])
+        except ImageReviewUnavailable:
+            return
         except CloudError:
             if self.group_cancelled(group['id']):
                 return
@@ -1073,7 +1090,7 @@ class Supervisor:
         if action=='ACCEPTED':
             self.save_group_output(task_id,group,asset)
         elif action=='QUARANTINE':
-            self.files.quarantine(asset,evaluation.model_dump(),reason,settings.retention_days,
+            self.quarantine_available(asset,evaluation.model_dump(),reason,settings.retention_days,
                 settings.delete_mode,settings.allow_permanent_delete and (settings.calibrated or settings.autonomous))
 
     def save_evaluation(self, asset, evaluation, call_id, expected_stage):
@@ -1153,7 +1170,39 @@ class Supervisor:
         return action, 'BASIC_STRUCTURE_PASSED' if settings.basic_pass else 'FINAL_QUALITY_PASSED'
 
     def decision(self, asset_id, evaluation_id, action, reason, approved_by=None):
-        self.db.execute("INSERT INTO decisions VALUES(?,?,?,?,?,?,?)", (uid(), asset_id, evaluation_id, action, reason, approved_by, now()))
+        with self.active_lock:
+            if self.image_deleted(asset_id):
+                return
+            self.db.execute("INSERT INTO decisions VALUES(?,?,?,?,?,?,?)", (uid(), asset_id, evaluation_id, action, reason, approved_by, now()))
+
+    def quarantine_available(self, asset, *args):
+        with self.active_lock:
+            if not self.image_deleted(asset['id']):
+                self.files.quarantine(asset,*args)
+
+    def image_deleted(self, asset_id):
+        row = self.db.one('SELECT state FROM assets WHERE id=?',(asset_id,))
+        return not row or row['state'] in ('DELETED','DELETING')
+
+    async def request_image_review(self, task_id, settings, asset, payload, image_path=None):
+        if self.image_deleted(asset['id']):
+            raise ImageReviewUnavailable()
+        try:
+            result = await self.cloud.request(task_id,settings,'review',Evaluation,payload,[image_path or self.files.path(asset['path'])])
+        except CloudError as exc:
+            if self.image_deleted(asset['id']):
+                raise ImageReviewUnavailable() from None
+            if settings.autonomous and str(exc) == 'INVALID_RESPONSE_REVIEW_REQUIRED':
+                if payload.get('stage')=='prescreen':
+                    self.db.event(task_id,'PRESCREEN_REVIEW_UNAVAILABLE',{'asset_id':asset['id'],'reason':str(exc)})
+                    return None,None  # The original-image final review still decides quality.
+                self.decision(asset['id'],None,'REVIEW_FAILED',str(exc),'automatic')
+                self.db.event(task_id,'IMAGE_REVIEW_UNAVAILABLE',{'asset_id':asset['id'],'reason':str(exc)})
+                raise ImageReviewUnavailable() from None
+            raise
+        if self.image_deleted(asset['id']):
+            raise ImageReviewUnavailable()
+        return result
 
     def approve_prompts(self, task_id, card_text=None, plans_text=None):
         task = self.db.one("SELECT * FROM tasks WHERE id=?", (task_id,))
@@ -1189,9 +1238,11 @@ class Supervisor:
 
     def delete_generated(self, task_id, asset_id):
         with self.active_lock:
-            if task_id in self.active and self.executing_task != task_id:
-                raise ValueError('图片正在重新评审，请完成后再删除。')
-            self.files.delete_generated(task_id,asset_id)
+            task = self.db.one('SELECT lease_until FROM tasks WHERE id=?',(task_id,))
+            busy = task_id in self.active or self.executing_task == task_id or bool(task and (task['lease_until'] or 0)>time.time())
+            self.files.delete_generated(task_id,asset_id,defer=busy)
+            asset = self.db.one('SELECT state FROM assets WHERE id=?',(asset_id,))
+            return 'queued' if asset['state']=='DELETING' else 'deleted'
 
     def reconcile_scored_results(self, task_id):
         """Save qualifying old REVIEW images using existing final scores; no cloud calls/deletes."""
@@ -1391,6 +1442,7 @@ class Supervisor:
             finally:
                 with self.active_lock:
                     self.active.discard(task_id)
+                    self.files.finish_user_deletions(task_id)
         self.executor.submit(execute_review)
 
     async def _review_asset(self, task_id, asset_id):
@@ -1409,7 +1461,7 @@ class Supervisor:
             payload = {"asset_id": asset_id, "stage": "final", "goal": settings.goal, "character":character_for_group(settings,group['ordinal']), "prompt": compact_prompt(plan.model_dump()), "round_index": variant["round_index"],
                        "target_style": target, "content_scope": settings.content_label, "face_required": face_required,
                        "acceptance_mode":"basic_structure" if settings.basic_pass else "quality"}
-            evaluation, call = await self.cloud.request(task_id, settings, "review", Evaluation, payload, [self.files.path(asset["path"])])
+            evaluation, call = await self.request_image_review(task_id, settings, asset, payload)
             self.validate_face_review(evaluation, face_required)
             row = self.save_evaluation(asset, evaluation, call, "final")
             if settings.autonomous and self.needs_structure_confirmation(evaluation,face_required,settings):
@@ -1422,12 +1474,13 @@ class Supervisor:
             if action == "ACCEPTED" and settings.autonomous:
                 self.save_group_output(task_id, group, asset)
             if action == "QUARANTINE":
-                self.files.quarantine(asset, evaluation.model_dump(), reason, settings.retention_days, settings.delete_mode, settings.allow_permanent_delete and (settings.calibrated or settings.autonomous))
+                self.quarantine_available(asset, evaluation.model_dump(), reason, settings.retention_days, settings.delete_mode, settings.allow_permanent_delete and (settings.calibrated or settings.autonomous))
             self.db.event(task_id, "REVIEW_COMPLETED", {"asset_id": asset_id})
         except Exception as exc:
             self.db.event(task_id, "REVIEW_FAILED", {"asset_id": asset_id, "error_code": type(exc).__name__})
         finally:
             self.db.release(task_id, owner)
+            self.files.finish_user_deletions(task_id)
 
     def stop(self, task_id):
         task = self.db.one("SELECT * FROM tasks WHERE id=?", (task_id,))
@@ -1580,6 +1633,12 @@ class Supervisor:
             raise CloudError("OUTPUT_FOLDER_UNWRITABLE") from None
 
     def save_group_output(self, task_id, group, asset):
+        with self.active_lock:
+            if self.image_deleted(asset['id']):
+                return
+            self._save_group_output(task_id,group,asset)
+
+    def _save_group_output(self, task_id, group, asset):
         accepted = self.db.accepted(task_id, group["id"])
         ordinal = next(i + 1 for i, row in enumerate(accepted) if row["id"] == asset["id"])
         if ordinal > self.settings(task_id).per_group:

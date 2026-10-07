@@ -366,7 +366,7 @@ async def test_resume_reviews_existing_image_without_retagging_or_regeneration(s
             result['suggestions']=['Add a small background detail.']
             result={**result.pop('scores'),**result}
         else:
-            result['scores']['safety']=120
+            return httpx.Response(503,json={'error':'temporarily unavailable'})
         return httpx.Response(200,json={'choices':[{'finish_reason':'stop','message':{'content':json.dumps(result)}}],
             'usage':{'prompt_tokens':10,'completion_tokens':10}})
     configure_cloud(service,httpx.MockTransport(handler))

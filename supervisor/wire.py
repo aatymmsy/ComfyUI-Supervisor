@@ -1,7 +1,9 @@
 """Small cloud replies, expanded into local records without model bookkeeping."""
 
 from typing import Annotated, Literal
-from pydantic import AliasChoices, Field, PrivateAttr, TypeAdapter, ValidationError, model_validator
+import math
+import re
+from pydantic import AliasChoices, Field, PrivateAttr, TypeAdapter, ValidationError, field_validator, model_validator
 from pydantic_core import PydanticCustomError
 
 from .models import Contract, Evaluation, Issue, Params, PromptPlan, Reason, Score, StyleCard, Suggestion, ThemePlan, VisualChecks
@@ -25,6 +27,8 @@ FORMAT_REASONS = {
     'review_score_conflict': '顶层与嵌套评分相互矛盾',
     'review_overall': '附加综合分必须为 0–100 的数字或 null',
     'review_evidence_conflict': '顶层与嵌套检查依据相互矛盾',
+    'review_score_type': '评分必须为 0–100 的数字或 null，不可填写风格名称或布尔值',
+    'review_score_impact': '评分影响附注必须为 -100–100 的数字、短文本或 null',
     'visible_evidence_required': '异常标记为真时必须说明可见异常的位置和依据',
 }
 
@@ -144,6 +148,22 @@ class Scores(Contract):
     safety: Score
     nsfw: Score
 
+    @field_validator('*', mode='before')
+    @classmethod
+    def normalize_score_notation(cls, value):
+        if isinstance(value, bool):
+            raise format_error('review_score_type')
+        if isinstance(value, str):
+            text = value.strip()
+            if text.casefold() in {'null', 'none', 'n/a', 'not applicable', 'unassessable', 'unknown',
+                                   '无法评估', '无法评分', '不适用', '未评估'}:
+                return None
+            # Only explicit 100-point notation; never extract a number from prose.
+            matched = re.fullmatch(r'(\d{1,3}(?:\.\d+)?)\s*(?:/\s*100|分|%)', text)
+            if matched:
+                return float(matched.group(1))
+        return value
+
 
 class Problem(Contract):
     category: Reason
@@ -168,7 +188,7 @@ class Problem(Contract):
                 raise format_error('review_problem_conflict')
         data = collect_evidence_notes(data)
         notes = []
-        for key in ('severity_note', 'severity_reason', 'label'):
+        for key in ('severity_note', 'severity_reason', 'label', 'category_hint'):
             if key in data:
                 note = data.pop(key)
                 if note is not None and (not isinstance(note, str) or len(note) > 500):
@@ -178,6 +198,14 @@ class Problem(Contract):
         evidence = data.get('evidence')
         if notes and isinstance(evidence, str) and 0 < len(evidence) <= 500:
             data['evidence'] = (evidence + ' · ' + ' · '.join(dict.fromkeys(notes)))[:500]
+        if 'score_impact' in data:
+            impact = data.pop('score_impact')
+            if impact is not None and not (
+                    isinstance(impact, (int, float)) and not isinstance(impact, bool)
+                    and math.isfinite(impact) and -100 <= impact <= 100
+                    or isinstance(impact, str) and len(impact) <= 200):
+                raise format_error('review_score_impact')
+            # An annotation cannot change actual metric scores or local totals.
         return data
 
 

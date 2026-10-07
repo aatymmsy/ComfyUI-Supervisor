@@ -102,7 +102,7 @@ ZH = {
     "unknown": "未确认", "sfw": "普通内容", "adult_allowed": "允许成人内容",
     "quarantine": "移入隔离区", "delayed": "延迟删除", "direct": "直接删除",
     "AVAILABLE": "可用", "QUARANTINED": "已隔离", "ACCEPTED": "已接受",
-    "REVIEW": "待处理", "RECHECK": "待自动复核", "CANDIDATE": "待确认",
+    "REVIEW_FAILED": "评审失败", "REVIEW": "待处理", "RECHECK": "待自动复核", "CANDIDATE": "待确认",
     "COMPLETED": "已完成", "PARTIAL": "部分完成", "CANCELLED": "已取消",
     "WAITING_APPROVAL": "等待审批", "FINAL_REVIEW": "最终评审", "RUNNING": "运行中",
     "PAUSED": "已暂停", "FAILED": "失败", "DEMO": "演示", "LIVE": "实时",

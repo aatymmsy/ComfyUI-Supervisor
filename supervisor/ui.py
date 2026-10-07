@@ -631,8 +631,8 @@ def build_ui(service: Supervisor):
             result_discussion_request = gr.Textbox(value='',elem_id='result-discussion-request',elem_classes=['result-delete-bridge'],show_label=False)
             result_discussion_trigger = gr.Button('Discuss result prompt',elem_id='result-discussion-trigger',elem_classes=['result-delete-bridge'])
             result_discussion_response = gr.Textbox(value='{}',elem_id='result-discussion-response',elem_classes=['result-delete-bridge'],show_label=False)
-            result_gallery = gr.Gallery(label="Generated images",columns=2,height=820,object_fit="contain",buttons=["download","download_all","fullscreen"],elem_id="result-gallery")
-            gr.Markdown('点开图片即可查看这张图的评分、提示词与生成参数。下载原图 PNG 后拖入 ComfyUI，可恢复该图工作流。')
+            result_gallery = gr.Gallery(label="Generated images",columns=2,height=820,object_fit="contain",buttons=["download","download_all"],elem_id="result-gallery")
+            gr.Markdown('点击图片放大，左右按钮或方向键切换；关闭放大后查看该图评分、提示词与生成参数。下载原图 PNG 后拖入 ComfyUI，可恢复该图工作流。')
             result_saved = gr.Textbox(label="Saved folder",interactive=False)
             result_zip_button=gr.Button('将所选任务的交付图片打包',size='sm')
             result_zip_status=gr.Markdown('')
@@ -790,8 +790,10 @@ def build_ui(service: Supervisor):
         def delete_result_image(request, language):
             try:
                 body = json.loads(request)
-                service.delete_generated(body['task_id'],body['asset_id'])
-                return '图片已删除。' if language=='zh' else 'Image deleted.'
+                status=service.delete_generated(body['task_id'],body['asset_id'])
+                text=('已强制移除图片；当前请求结束后清理文件。' if language=='zh' else 'Image removed; files will be cleaned after the current request.') if status=='queued' else ('图片已删除。' if language=='zh' else 'Image deleted.')
+                gr.Info(text)
+                return text
             except (ValueError,KeyError,TypeError) as exc:
                 text = str(exc) if isinstance(exc,ValueError) else '删除请求无效，请刷新生成结果。'
                 gr.Warning(text)

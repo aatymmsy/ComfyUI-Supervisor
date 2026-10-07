@@ -217,19 +217,17 @@ class FileStore:
             self.db.execute('INSERT INTO asset_sources VALUES(?,?)',(asset_id,str(source.resolve())))
         return self.db.one("SELECT * FROM assets WHERE id=?", (asset_id,))
 
-    def delete_generated(self, task_id, asset_id):
+    def delete_generated(self, task_id, asset_id, *, defer=False):
         asset = self.db.one("SELECT * FROM assets WHERE id=? AND task_id=?", (asset_id,task_id))
         if not asset or asset['source_kind'] != 'generated':
             raise ValueError('只能删除当前任务的生成图片。')
         pending = self.db.one('SELECT * FROM user_deletions WHERE asset_id=?',(asset_id,))
         if pending:
-            self._apply_user_delete(pending)
+            if not defer:
+                self._apply_user_delete(pending)
             return
         if asset['state'] not in ('AVAILABLE','QUARANTINED'):
             raise ValueError('图片已删除或不可用。')
-        generation = self.db.one('SELECT state FROM generations WHERE id=?',(asset['generation_id'],))
-        if generation and generation['state'] not in ('DECIDED','FAILED'):
-            raise ValueError('这张图片正在处理，请处理完成后再删除。')
         if not asset['path'].startswith(f'tasks/{task_id}/'):
             raise ValueError('图片不在当前任务目录内。')
         specs = []
@@ -268,7 +266,17 @@ class FileStore:
         with self.db.transaction() as c:
             c.execute('INSERT INTO user_deletions(asset_id,task_id,files,created_at) VALUES(?,?,?,?)',(asset_id,task_id,dump_json(specs),now()))
             c.execute("UPDATE assets SET state='DELETING' WHERE id=?",(asset_id,))
-        self._apply_user_delete(self.db.one('SELECT * FROM user_deletions WHERE asset_id=?',(asset_id,)))
+        self.db.event(task_id,'USER_IMAGE_DELETE_REQUESTED',{'asset_id':asset_id,'deferred':defer})
+        if not defer:
+            self._apply_user_delete(self.db.one('SELECT * FROM user_deletions WHERE asset_id=?',(asset_id,)))
+
+    def finish_user_deletions(self, task_id):
+        """Worker safe point: finish tombstoned images after the current request."""
+        for job in self.db.rows("SELECT * FROM user_deletions WHERE task_id=? AND state='pending'",(task_id,)):
+            try:
+                self._apply_user_delete(job)
+            except (OSError,ValueError):
+                self.db.event(task_id,'USER_DELETE_RETRY_REQUIRED',{'asset_id':job['asset_id']})
 
     def _apply_user_delete(self, job):
         if job['state']=='committed':
@@ -325,6 +333,8 @@ class FileStore:
 
     def quarantine(self, asset, evaluation, reason, days=7, kind="quarantine", allow_permanent=False):
         asset = self.db.one("SELECT * FROM assets WHERE id=?", (asset["id"],))
+        if asset['state'] in ('DELETED','DELETING') and self.db.one('SELECT asset_id FROM user_deletions WHERE asset_id=?',(asset['id'],)):
+            return
         latest = self.db.one("SELECT action FROM decisions WHERE asset_id=? ORDER BY rowid DESC LIMIT 1", (asset["id"],))
         if asset["source_kind"] != "generated" or asset["protected"] or asset["state"] != "AVAILABLE" or (latest and latest["action"] == "ACCEPTED"):
             raise ValueError("Asset is protected or not a managed generation")
@@ -384,6 +394,9 @@ class FileStore:
     def recover(self):
         import time
         for job in self.db.rows("SELECT * FROM user_deletions WHERE state='pending'"):
+            task = self.db.one('SELECT lease_until FROM tasks WHERE id=?',(job['task_id'],))
+            if task and (task['lease_until'] or 0) > time.time():
+                continue
             try:
                 self._apply_user_delete(job)
             except (OSError,ValueError):

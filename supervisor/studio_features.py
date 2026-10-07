@@ -108,7 +108,7 @@ def result_review_html(service,task_id,lang='zh',*,task_ids=None,asset_ids=None)
     parts = []
     settings_by_task={owner:service.settings(owner) for owner in owners}
     tasks_by_id={owner:service.db.one('SELECT state,reason FROM tasks WHERE id=?',(owner,)) for owner in owners}
-    states = {'ACCEPTED':'已保存','CANDIDATE':'待确认','QUARANTINE':'已淘汰','REVIEW':'待人工检查','RECHECK':'待自动复核','REJECTED':'已拒绝'}
+    states = {'REVIEW_FAILED':'评审失败','ACCEPTED':'已保存','CANDIDATE':'待确认','QUARANTINE':'已淘汰','REVIEW':'待人工检查','RECHECK':'待自动复核','REJECTED':'已拒绝'}
     esc = lambda value:html.escape(str(value),quote=True)
     for row in rows:
         owner=row['task_id']
@@ -119,8 +119,14 @@ def result_review_html(service,task_id,lang='zh',*,task_ids=None,asset_ids=None)
             (row['evaluation_id'],lang)) if row['evaluation_id'] else None
         if localized:
             evaluation = {**evaluation, **json.loads(localized['body'])}
+        if row['action']=='REVIEW_FAILED':
+            evaluation={}
+            row={**row,'effective_score':None}
         task=tasks_by_id[owner]
         pending_label,pending_message=unreviewed_status(task,row['generation_state'],settings.review_enabled,service.group_cancelled(row['group_id']))
+        if row['action']=='REVIEW_FAILED':
+            pending_label='无有效评分'
+            pending_message='自动修复与已配置评审路线均未取得有效评分；本图不计入交付，已继续后续图片。可删除或单独重画、复评。'
         group = row['ordinal']+1 if row['ordinal'] is not None else '?'
         round_index = row['round_index']+1 if row['round_index'] is not None else '?'
         score = f"综合分 {row['effective_score']:.1f}" if row['effective_score'] is not None else pending_label

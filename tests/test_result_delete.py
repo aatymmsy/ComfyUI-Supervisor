@@ -44,16 +44,10 @@ async def test_delete_result_removes_original_export_preview_and_manifest_entry(
     assert service.db.one("SELECT COUNT(*) n FROM decisions WHERE asset_id=? AND action='USER_DELETED'",(deleted['id'],))['n']==1
 
 
-async def test_delete_rejects_modified_export_wrong_task_and_processing_image(service,tmp_path):
+async def test_delete_rejects_modified_export_and_wrong_task(service,tmp_path):
     task,rows=await completed(service,tmp_path)
     image=rows[0];source=service.files.path(image['path'])
     with pytest.raises(ValueError):service.delete_generated('another-task',image['id'])
-    service.active.add(task)
-    with pytest.raises(ValueError,match='重新评审'):service.delete_generated(task,image['id'])
-    service.active.remove(task)
-    service.db.execute("UPDATE generations SET state='REVIEW' WHERE id=?",(image['generation_id'],))
-    with pytest.raises(ValueError,match='正在处理'):service.delete_generated(task,image['id'])
-    service.db.execute("UPDATE generations SET state='DECIDED' WHERE id=?",(image['generation_id'],))
     export=next((tmp_path/'exports'/f'task_{task}').glob('group_*/*'+image['id']+'.png'))
     export.write_bytes(b'user changed file')
     with pytest.raises(ValueError,match='已被修改'):service.delete_generated(task,image['id'])
@@ -100,3 +94,31 @@ async def test_result_delete_callback_targets_id_and_refresh_clears_deleted_imag
     assert len(after)==len(refresh.outputs) and len(json.loads(after[25])['images'])==1
     assert len(after[19]['value'])==1 and image['id'] not in after[19]['value'][0][1]
     assert len(refresh.fn(None,'zh'))==len(refresh.outputs)
+
+
+async def test_pending_paused_image_can_be_force_deleted(service,tmp_path):
+    task,rows=await completed(service,tmp_path)
+    image=rows[0]
+    service.db.transition(task,'PAUSED','RECOVERABLE_ERROR','INVALID_RESPONSE_REVIEW_REQUIRED')
+    service.db.execute("UPDATE generations SET state='EVALUATE' WHERE id=?",(image['generation_id'],))
+    assert service.delete_generated(task,image['id'])=='deleted'
+    assert not service.files.path(image['path']).exists()
+    assert image['id'] not in result_review_html(service,task)
+
+
+async def test_busy_delete_is_queued_idempotently_and_recovery_waits_for_lease(service,tmp_path):
+    task,rows=await completed(service,tmp_path)
+    image=rows[0]
+    import time
+    service.active.add(task)
+    service.db.execute('UPDATE tasks SET lease_until=? WHERE id=?',(time.time()+60,task))
+    assert service.delete_generated(task,image['id'])=='queued'
+    assert service.delete_generated(task,image['id'])=='queued'
+    service.files.recover()
+    assert service.files.path(image['path']).exists()
+    assert image['id'] not in result_review_html(service,task)
+    service.active.remove(task)
+    service.db.execute('UPDATE tasks SET lease_until=NULL WHERE id=?',(task,))
+    service.files.finish_user_deletions(task)
+    assert not service.files.path(image['path']).exists()
+    assert service.delete_generated(task,image['id'])=='deleted'
